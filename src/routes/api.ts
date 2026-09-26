@@ -7,6 +7,8 @@ import { apiError, bearerSecret } from '../lib/http';
 import { lookupShare, type Lookup } from '../lib/lookup';
 import { MAX_BODY_BYTES, normalizeText, validatePayload } from '../lib/payload';
 import { allow, clientHash } from '../lib/rateLimit';
+import { LIMITS } from '../lib/limits';
+import { count, countShare } from '../lib/metrics';
 import {
   addReport,
   deletePayload,
@@ -17,8 +19,14 @@ import {
   refreshPending,
   reserve,
   setStatus,
-  touch,
   unixDay,
+  expiresAt,
+  expireShare,
+  isExpired,
+  incrementQuotas,
+  databaseSize,
+  payloadDb,
+  logEvent,
   writePayload,
   writeShard,
   type NewShare,
@@ -35,7 +43,7 @@ const shareUrl = (c: Context<AppContext>, code: string) => `${c.env.PUBLIC_BASE_
 
 function created(c: Context<AppContext>, row: Pick<ShareRow, 'code' | 'created_at'>, status: 200 | 201): Response {
   const url = shareUrl(c, row.code);
-  return c.json({ code: row.code, url, created_at: row.created_at }, status, {
+  return c.json({ code: row.code, url, created_at: row.created_at, expires_at: expiresAt(row) }, status, {
     'Cache-Control': 'no-store',
     ...(status === 201 ? { Location: url } : {}),
   });
@@ -44,12 +52,53 @@ function created(c: Context<AppContext>, row: Pick<ShareRow, 'code' | 'created_a
 function lookupError(c: Context<AppContext>, result: Exclude<Lookup, { kind: 'ok' }>): Response {
   switch (result.kind) {
     case 'rate_limited':
+      count('rate_limited');
       return apiError(c, 429, 'rate_limited', 'Too many requests');
     case 'not_found':
+      count('not_found');
       return apiError(c, 404, 'not_found', 'No share with this code');
     case 'gone':
+      count('gone');
       return apiError(c, 410, 'gone', 'This share is no longer available', { reason: result.reason });
   }
+}
+
+/** Reads the body but stops as soon as it exceeds [max] bytes (no huge buffers). */
+async function readBodyLimited(request: Request, max: number): Promise<Uint8Array | 'too_large'> {
+  if (Number(request.headers.get('Content-Length') ?? 0) > max) return 'too_large';
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      return 'too_large';
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
+/** Discord alert at most once per hour per kind (per data center). */
+async function alertOnce(c: Context<AppContext>, kind: string, text: string): Promise<void> {
+  const key = `https://alerts.internal/${kind}`;
+  try {
+    if (await caches.default.match(key)) return;
+    await caches.default.put(key, new Response('1', { headers: { 'Cache-Control': 'max-age=3600' } }));
+  } catch {
+    // Cache API unavailable — still alert.
+  }
+  await postDiscord(c.env.DISCORD_STATS_WEBHOOK ?? c.env.DISCORD_MODERATION_WEBHOOK, text);
 }
 
 api.get('/health', async (c) => {
@@ -65,27 +114,32 @@ api.post('/shares', async (c) => {
   const secret = bearerSecret(c);
   if (!secret) return apiError(c, 401, 'missing_owner_secret', 'Authorization: Bearer <owner_secret> is required');
 
-  if (!(await allow(c.env.RL_CREATE, `create:${await clientHash(c)}`))) {
+  const client = await clientHash(c);
+  if (!(await allow(c.env.RL_CREATE, `create:${client}`))) {
+    count('rate_limited');
     return apiError(c, 429, 'rate_limited', 'Too many shares created, try again in a minute');
   }
 
   if (!(c.req.header('Content-Type') ?? '').toLowerCase().startsWith('application/json')) {
     return apiError(c, 415, 'unsupported_media_type', 'Content-Type must be application/json');
   }
-  const declaredLength = Number(c.req.header('Content-Length') ?? 0);
-  if (declaredLength > MAX_BODY_BYTES) return apiError(c, 413, 'payload_too_large', 'Body is larger than 1 MiB');
-  const raw = await c.req.arrayBuffer();
-  if (raw.byteLength > MAX_BODY_BYTES) return apiError(c, 413, 'payload_too_large', 'Body is larger than 1 MiB');
+  const raw = await readBodyLimited(c.req.raw, MAX_BODY_BYTES);
+  if (raw === 'too_large') {
+    count('rejected_invalid');
+    return apiError(c, 413, 'payload_too_large', 'Body is larger than 1 MiB');
+  }
 
   let body: unknown;
   try {
     body = JSON.parse(new TextDecoder().decode(raw));
   } catch {
+    count('rejected_invalid');
     return apiError(c, 400, 'invalid_json', 'Body is not valid JSON');
   }
 
   const result = validatePayload(body);
   if (!result.ok) {
+    count('rejected_invalid');
     return result.error === 'unsupported_schema'
       ? apiError(c, 422, 'unsupported_schema', 'Payload schema is newer than this server supports')
       : apiError(c, 400, 'invalid_payload', 'Payload does not match schema v1', { issues: result.issues });
@@ -94,9 +148,38 @@ api.post('/shares', async (c) => {
   try {
     const ownerHash = await sha256Hex(secret);
     let existing = await findByOwnerHash(c.env, ownerHash);
-    if (existing?.status === 'active') return created(c, existing, 200);
+    if (existing?.status === 'active' && isExpired(existing)) {
+      await expireShare(c.env, existing);
+      existing = { ...existing, status: 'expired' };
+    }
+    if (existing?.status === 'active') {
+      count('create_retry');
+      return created(c, existing, 200);
+    }
     if (existing && existing.status !== 'pending') {
       return apiError(c, 409, 'owner_secret_reused', 'This owner secret belongs to a removed share; use a new one');
+    }
+
+    if (!existing) {
+      // Daily quotas count only brand-new shares (retries above are free).
+      const [perClient = 0, total = 0] = await incrementQuotas(c.env, [`q:create:ip:${client}`, 'q:create:all']);
+      if (perClient > LIMITS.dailyCreatesPerClient) {
+        count('daily_limit');
+        return apiError(c, 429, 'daily_limit_reached', 'Daily share limit reached for this network, try again tomorrow', {}, 3600);
+      }
+      if (total > LIMITS.dailyCreatesTotal) {
+        count('daily_limit');
+        await alertOnce(c, 'capacity', `⚠️ studdly-share: global daily share limit (${LIMITS.dailyCreatesTotal}) reached`);
+        return apiError(c, 503, 'capacity_reached', 'Sharing is paused for today, try again tomorrow', {}, 3600);
+      }
+      const shardBytes = await databaseSize(payloadDb(c.env, writeShard(c.env)));
+      if (shardBytes > LIMITS.shardFullBytes) {
+        await alertOnce(c, 'storage_full', `🚨 studdly-share: payload shard ${writeShard(c.env)} is full (${Math.round(shardBytes / 1048576)} MB). Add a new shard.`);
+        return apiError(c, 503, 'storage_full', 'Storage is full, try again later', {}, 3600);
+      }
+      if (shardBytes > LIMITS.shardWarnBytes) {
+        c.executionCtx.waitUntil(alertOnce(c, 'storage_warn', `⚠️ studdly-share: payload shard ${writeShard(c.env)} at ${Math.round(shardBytes / 1048576)} MB — add PAYLOADS_${writeShard(c.env) + 1} soon.`));
+      }
     }
 
     const canonical = JSON.stringify(result.payload);
@@ -122,7 +205,9 @@ api.post('/shares', async (c) => {
     for (let attempt = 0; !existing && attempt < MAX_CODE_ATTEMPTS; attempt++) {
       share.code = generateCode();
       const outcome = await reserve(c.env, share);
-      if (outcome === 'ok') existing = { ...share, status: 'pending', report_count: 0, status_changed_at: now };
+      if (outcome === 'ok') {
+        existing = { ...share, status: 'pending', report_count: 0, status_changed_at: now, view_count: 0, fetch_count: 0 };
+      }
       else if (outcome === 'owner_taken') {
         // A concurrent retry with the same secret won the race.
         existing = await findByOwnerHash(c.env, ownerHash);
@@ -137,9 +222,12 @@ api.post('/shares', async (c) => {
     if (existing.code !== share.code) await refreshPending(c.env, existing.code, share);
     await writePayload(c.env, share.payload_shard, existing.code, gz);
     await setStatus(c.env, existing.code, 'active', ['pending']);
+    count('create');
     return created(c, existing, 201);
   } catch (err) {
     console.error('create_failed', String(err));
+    count('error');
+    c.executionCtx.waitUntil(logEvent(c.env, 'error', 'POST /api/v1/shares', String(err)).catch(() => undefined));
     return apiError(c, 503, 'storage_unavailable', 'Storage is temporarily unavailable, retry with the same owner secret');
   }
 });
@@ -147,8 +235,13 @@ api.post('/shares', async (c) => {
 api.get('/shares/:code/status', async (c) => {
   const result = await lookupShare(c, c.req.param('code'));
   if (result.kind !== 'ok') return lookupError(c, result);
-  c.executionCtx.waitUntil(touch(c.env, result.row.code));
-  return c.json({ status: 'active', created_at: result.row.created_at }, 200, { 'Cache-Control': 'no-store' });
+  count('status');
+  countShare(result.row.code, 'checks');
+  return c.json(
+    { status: 'active', created_at: result.row.created_at, expires_at: expiresAt(result.row) },
+    200,
+    { 'Cache-Control': 'no-store' },
+  );
 });
 
 api.get('/shares/:code', async (c) => {
@@ -158,16 +251,18 @@ api.get('/shares/:code', async (c) => {
 
   const etag = `"${row.content_sha256}"`;
   const headers = { 'Cache-Control': 'public, max-age=300', ETag: etag };
-  c.executionCtx.waitUntil(touch(c.env, row.code));
+  count('fetch');
+  countShare(row.code, 'fetches');
   if (c.req.header('If-None-Match') === etag) return c.body(null, 304, headers);
 
   const gz = await readPayload(c.env, row.payload_shard, row.code);
   if (!gz) {
     console.error('payload_missing', row.code);
+    c.executionCtx.waitUntil(logEvent(c.env, 'warn', 'GET /api/v1/shares/:code', `payload missing for ${row.code}`).catch(() => undefined));
     return apiError(c, 404, 'not_found', 'No share with this code');
   }
   const payloadJson = await gunzip(gz);
-  const body = `{"code":${JSON.stringify(row.code)},"created_at":${row.created_at},"payload":${payloadJson}}`;
+  const body = `{"code":${JSON.stringify(row.code)},"created_at":${row.created_at},"expires_at":${expiresAt(row)},"payload":${payloadJson}}`;
   return c.body(body, 200, { ...headers, 'Content-Type': 'application/json; charset=utf-8' });
 });
 
@@ -212,6 +307,7 @@ api.post('/shares/:code/reports', async (c) => {
   const row = isValidCode(code) ? await findByCode(c.env, code) : null;
   if (!row || (row.status !== 'active' && row.status !== 'removed_pending_review')) return accepted;
 
+  count('report');
   const reporters = await addReport(c.env, code, hash, reason, details);
   if (reporters === null) return accepted;
 

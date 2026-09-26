@@ -15,12 +15,14 @@ export interface Strings {
   appStore: string;
   installHint: string;
   learnInStuddly: string;
+  validUntil: (date: string) => string;
   notFoundTitle: string;
   notFoundBody: string;
   goneTitle: string;
   goneBody: string;
   busyTitle: string;
   busyBody: string;
+  errorBody: string;
   report: string;
   reportQuestion: string;
   reasons: Record<'inappropriate' | 'personal_data' | 'copyright' | 'spam' | 'other', string>;
@@ -47,12 +49,14 @@ const en: Strings = {
   appStore: 'Download on the App Store',
   installHint: "Don't have Studdly yet? Install it, then tap the link again.",
   learnInStuddly: 'Learn it in Studdly',
+  validUntil: (date) => `Link works until ${date}`,
   notFoundTitle: "We can't find this topic",
   notFoundBody: 'Check the link, or ask your friend to send it again.',
   goneTitle: "This link doesn't work anymore",
   goneBody: 'Ask your friend to share the topic again.',
   busyTitle: 'Just a moment',
   busyBody: 'Too many tries. Please try again in a minute.',
+  errorBody: 'Something went wrong on our side. Please try again in a moment.',
   report: 'Report',
   reportQuestion: "What's wrong with this topic?",
   reasons: {
@@ -77,12 +81,14 @@ const pl: Strings = {
   appStore: 'Pobierz z App Store',
   installHint: 'Nie masz jeszcze Studdly? Zainstaluj aplikację i kliknij link jeszcze raz.',
   learnInStuddly: 'Ucz się w Studdly',
+  validUntil: (date) => `Link działa do ${date}`,
   notFoundTitle: 'Nie możemy znaleźć tego tematu',
   notFoundBody: 'Sprawdź link albo poproś znajomego, żeby wysłał go jeszcze raz.',
   goneTitle: 'Ten link już nie działa',
   goneBody: 'Poproś znajomego, żeby udostępnił temat jeszcze raz.',
   busyTitle: 'Chwileczkę',
   busyBody: 'Za dużo prób. Spróbuj ponownie za minutę.',
+  errorBody: 'Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.',
   report: 'Zgłoś',
   reportQuestion: 'Co jest nie tak z tym tematem?',
   reasons: {

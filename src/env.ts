@@ -7,6 +7,7 @@ export interface Env {
   RL_READ?: RateLimit;
   RL_REPORT?: RateLimit;
   RL_MISS?: RateLimit;
+  RL_LOGIN?: RateLimit;
 
   PUBLIC_BASE_URL: string;
   PAYLOAD_WRITE_SHARD: string;

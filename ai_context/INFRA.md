@@ -37,9 +37,9 @@ Assumptions (deliberately pessimistic for today): 30k installs → **3k DAU**; *
 | Resource | Daily usage | Free limit | Used |
 |----------|-------------|-----------|------|
 | Worker requests | 150 create + 300 status + 750 opens × ~3 ≈ **2.7k** | 100k/day | ~3 % |
-| D1 rows written | 150 × 2 (pending→active) + ≤ 750 access bumps ≈ **1k** | 100k/day | ~1 % |
+| D1 rows written | 150 × 4 (quota, pending, payload, active) + metrics flushes (≤ 1/min per isolate) ≈ **3–5k** | 100k/day | ~5 % |
 | D1 rows read | ≈ **3k** | 5M/day | < 0.1 % |
-| Payload storage (D1 shards) | 150 × ~20 KB gz ≈ 3 MB/day ≈ **1.1 GB/year** | 500 MB per shard, up to 9 shards (5 GB/account) | shard 1 fills in ~5 months at this pace; with the 365-day expiry steady state is ~1.1 GB ≈ 3 shards |
+| Payload storage (D1 shards) | 150 × ~20 KB gz ≈ 3 MB/day | 500 MB per shard, up to 9 shards (5 GB/account) | links live 30 days → steady state ≈ 90 MB, one shard is plenty |
 | Metadata storage (D1 `DB`) | ~0.5 KB/row → ~27 MB/year | 500 MB | ~5 % |
 
 **Adding a payload shard** (the daily Discord stats warn at 350 MB): add a `PAYLOADS_<n+1>` entry to `wrangler.jsonc` (`database_name: studdly-share-payloads-<n+1>`, `migrations_dir: migrations/payloads`), add it to `Env` in `src/env.ts`, add its `migrations apply` line to `.github/workflows/deploy.yml`, set `PAYLOAD_WRITE_SHARD` to `n+1`, push. New shares go to the new shard; old ones keep reading from theirs (`shares.payload_shard`).

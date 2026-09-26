@@ -8,8 +8,15 @@ export const GENERATED_CODE_LENGTH = 5;
 /** Accepts 5 (current) and 6 (reserved for later growth) characters. */
 export const CODE_PATTERN = /^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,6}$/;
 
+/**
+ * First path segments that are never share codes. None of them can match
+ * CODE_PATTERN anyway (they contain vowels or dots), and tests assert that
+ * stays true — but the landing route also checks this list explicitly.
+ */
+export const RESERVED_PATHS = ['admin', 'api', '.well-known', 'robots.txt', 'favicon.ico', 'icon.png', 'logotype.png', 'sloth.png', 'styles.css', 'admin.css', 'admin.js', 'report.js', 'fonts'] as const;
+
 export function isValidCode(value: string): boolean {
-  return CODE_PATTERN.test(value);
+  return CODE_PATTERN.test(value) && !(RESERVED_PATHS as readonly string[]).includes(value);
 }
 
 /** Uniform random code via rejection sampling (no modulo bias). */

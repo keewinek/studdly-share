@@ -37,15 +37,18 @@ Responses:
 
 | Status | Body | When |
 |--------|------|------|
-| `201` | `{ "code", "url", "created_at" }` | New share stored |
-| `200` | `{ "code", "url", "created_at" }` | Same `owner_secret` already created a share (retry after timeout) — returns the original, **ignores the new body** |
+| `201` | `{ "code", "url", "created_at", "expires_at" }` | New share stored (`expires_at` = `created_at` + 30 days) |
+| `200` | `{ "code", "url", "created_at", "expires_at" }` | Same `owner_secret` already created a share (retry after timeout) — returns the original, **ignores the new body** |
 | `400 invalid_json` / `400 invalid_payload` | + optional `"issues": [{ "path", "problem" }]` | Schema/limit violation |
 | `401 missing_owner_secret` | | No/invalid bearer |
 | `409 owner_secret_reused` | | The secret belongs to a share that was deleted/expired/removed — the app must generate a new secret and retry |
 | `413 payload_too_large` | | Body > 1 MiB, or limits in the table below |
 | `415 unsupported_media_type` | | Not JSON |
 | `422 unsupported_schema` | | `schema` newer than the server knows |
-| `429 rate_limited` | `Retry-After` header | Too many creates from this client |
+| `429 rate_limited` | `Retry-After` header | Too many creates from this client (10/min) |
+| `429 daily_limit_reached` | `Retry-After: 3600` | This client (IP hash) created 100 shares today |
+| `503 capacity_reached` | `Retry-After: 3600` | 5 000 shares created today by everyone (free-quota guard) |
+| `503 storage_full` | `Retry-After: 3600` | Write shard above 480 MB — add a shard |
 | `503 storage_unavailable` | `Retry-After` header | D1 failure; safe to retry with the **same** secret |
 
 Algorithm (Worker):
@@ -68,7 +71,7 @@ Used by the sender's app on the second+ tap. Reads **one metadata row**, never t
 
 | Status | Body |
 |--------|------|
-| `200` | `{ "status": "active", "created_at" }` |
+| `200` | `{ "status": "active", "created_at", "expires_at" }` |
 | `404 not_found` | never existed / bad code |
 | `410 gone` | `{ "error": "gone", "reason": "expired" \| "deleted" \| "removed" }` |
 
@@ -78,7 +81,7 @@ Used by the sender's app on the second+ tap. Reads **one metadata row**, never t
 
 | Status | Body |
 |--------|------|
-| `200` | `{ "code", "created_at", "payload": <Share payload v1> }` |
+| `200` | `{ "code", "created_at", "expires_at", "payload": <Share payload v1> }` |
 | `404` / `410` | as above |
 
 - Payload is read from its shard, gunzipped and wrapped; Cloudflare compresses the response for the client. Supports `If-None-Match` → `304`.
@@ -96,9 +99,22 @@ v1 app does not expose this in UI yet; the endpoint exists so we can add "Stop s
 Body: `{ "reason": "inappropriate" | "personal_data" | "copyright" | "spam" | "other", "details"?: string (≤ 500) }`.
 `202` always (even for unknown codes, to avoid oracle probing). One report per IP-hash per code per day. Increments `report_count`; posts to the moderation Discord webhook; **auto-hides** the share (`status='removed_pending_review'` → served as `410 removed`) when `report_count >= 3` from distinct IP hashes. See `SECURITY.md`.
 
+### Admin API (`/api/admin/*`) — used by the `/admin` dashboard
+
+Auth: session cookie `studdly_admin` (from `/login`) **or** `Authorization: Bearer <ADMIN_TOKEN>` (optional Worker secret, for scripts). Cookie-authenticated writes must send a same-origin `Origin` header (CSRF guard; the cookie is also `SameSite=Strict; HttpOnly; Secure`).
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/admin/login` `{ "password_sha256": "<hex>" }` | `204` + cookie · `401 invalid_password` · `429` (5/min per IP, 20 failures/day per IP) · `404 not_configured` |
+| `POST /api/admin/logout` | clears the cookie |
+| `POST /api/admin/password` `{ "current_sha256", "new_sha256" }` | changes the password, rotates the session key (logs out other sessions) |
+| `DELETE /api/admin/shares/{code}` | takedown: `status='removed'`, payload deleted |
+| `POST /api/admin/shares/{code}/restore` | undo an auto-hide (`removed_pending_review` → `active`) |
+| `GET /api/admin/shares/{code}/payload` | raw payload JSON download (any status that still has a payload) |
+
 ### `DELETE /api/admin/shares/{code}` — takedown (admin)
 
-Header `Authorization: Bearer <ADMIN_TOKEN>` (Worker secret). Sets `status='removed'`, deletes the payload row. Without `ADMIN_TOKEN` these routes return 404; the `Moderate a share` GitHub workflow does the same via `wrangler d1 execute`. `POST /api/admin/shares/{code}/restore` reverses a `removed_pending_review`.
+Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`, deletes the payload row. The `Moderate a share` GitHub workflow does the same via `wrangler d1 execute`. `POST /api/admin/shares/{code}/restore` reverses a `removed_pending_review`.
 
 ### Other routes
 
@@ -106,6 +122,7 @@ Header `Authorization: Bearer <ADMIN_TOKEN>` (Worker secret). Sets `status='remo
 |-------|---------|
 | `GET /{code}` | Landing page (HTML, see `DEEP_LINKS.md`). Unknown/gone → friendly localized 404/410 page with "Get Studdly". |
 | `GET /` | `302` → `https://studdly.app` |
+| `GET /admin`, `/admin/shares`, `/admin/shares/{code}`, `/admin/reports`, `/admin/settings` | Owner dashboard (HTML, see below). `admin` can never be a share code (no vowels in the code alphabet; `RESERVED_PATHS` in `src/lib/code.ts`) |
 | `GET /.well-known/assetlinks.json` | Android App Links (served by the Worker with `application/json`) |
 | `GET /.well-known/apple-app-site-association` | iOS Universal Links (no extension, `application/json`) |
 | `GET /api/v1/health` | `{ "ok": true, "version": "<git sha>" }` — checks D1 with `SELECT 1` |
@@ -158,8 +175,21 @@ Payload shards `PAYLOADS_<n>` — `migrations/payloads/0001_init.sql`:
 
 - `payloads(code PK, body BLOB)` — gzipped canonical payload JSON. Tombstoned shares keep their `shares` row (so codes are never reused) but lose their payload row.
 
+## Admin dashboard (`/admin`)
+
+Server-rendered, Polish UI, strict CSP (`script-src 'self'`, no inline styles — charts are inline SVG), `noindex`, `no-store`.
+
+- **Dashboard:** health strip (API version, last cron run, errors in 24 h, shard fill), tiles (active topics, new today/7/30 days, page views, app fetches, lessons/questions, moderation queue), 30-day chart of new shares, storage (payload bytes, avg/max topic, real D1 file sizes vs 500 MB), 7-day traffic table (views, fetches, status checks, creates, retries, reports, 404/410, rate limits, daily limits, rejected input, server errors), today's limits, status/language/app-version breakdown, most popular topics, recent server errors.
+- **Tematy:** search (code/title), status filter, sort (newest/popular/largest/most reported), pagination; detail page with metadata, expiry, traffic, reports and the full lesson/quiz content, plus remove/restore/download actions (two-click confirm).
+- **Zgłoszenia:** last 200 reports. **Ustawienia:** change password, list of limits.
+
+Metrics are counted in isolate memory and flushed to `counters` at most once a minute per isolate (`src/lib/metrics.ts`) — approximate by design, so they can never eat the D1 write quota needed for real shares.
+
+Migration `migrations/meta/0002_admin_metrics.sql` (additive): `shares.view_count`, `shares.fetch_count`, `counters(key, day, count)` (`m:*` metrics, `q:*` quotas), `events` (server errors, 14-day retention), `settings` (`admin_password_hash`, `admin_session_key`, `last_cron`).
+
 ## Cron (daily, `17 3 * * *` UTC)
 
-1. `status='active' AND last_accessed_day < today-365` → `expired`, delete payload row (batch ≤ 500 per run).
+1. `status IN ('active','removed_pending_review') AND created_at < now-30 days` → `expired`, delete payload row (batch ≤ 500 per run). Lookups also expire such rows lazily, so a link never works past 30 days even if the cron is late.
 2. `status='pending' AND created_at < now-3600` → delete row + payload row if present.
-3. Post a one-line stats message to Discord (shares created yesterday, active total, awaiting review, expired/cleaned counts, stored MB per payload shard with a warning above 350 MB) to `DISCORD_STATS_WEBHOOK` if set.
+3. Prune `events` (> 14 days), `counters` (> 120 days) and `reports` (> 365 days); record `last_cron` in `settings`.
+4. Post a one-line stats message to Discord (shares created yesterday, active total, awaiting review, expired/cleaned counts, stored MB per payload shard with a warning above 350 MB) to `DISCORD_STATS_WEBHOOK` if set.

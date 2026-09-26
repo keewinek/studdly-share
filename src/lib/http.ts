@@ -13,6 +13,9 @@ export type ErrorCode =
   | 'unsupported_media_type'
   | 'unsupported_schema'
   | 'rate_limited'
+  | 'daily_limit_reached'
+  | 'capacity_reached'
+  | 'storage_full'
   | 'storage_unavailable';
 
 export function apiError(
@@ -21,10 +24,11 @@ export function apiError(
   error: ErrorCode,
   message: string,
   extra: Record<string, unknown> = {},
+  retryAfterSeconds?: number,
 ): Response {
   const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
-  if (status === 429) headers['Retry-After'] = '60';
-  if (status === 503) headers['Retry-After'] = '5';
+  if (status === 429) headers['Retry-After'] = String(retryAfterSeconds ?? 60);
+  if (status === 503) headers['Retry-After'] = String(retryAfterSeconds ?? 5);
   return c.json({ error, message, ...extra }, status, headers);
 }
 

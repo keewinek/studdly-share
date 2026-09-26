@@ -48,6 +48,13 @@
 - [x] Fill `ANDROID_CERT_SHA256` (Play App Signing + upload key) so Android verifies App Links.
 - [ ] Release a new app version (internal testing first) and test on real devices: share → sheet → badge; open link on a second phone with and without the app.
 
+## Phase 2b — admin dashboard, limits, 30-day links — ✅ implemented 2026-09-26
+
+- [x] `/admin` dashboard (health, traffic, storage, limits, moderation, errors, topic browser, reports, password change).
+- [x] Daily quotas (per IP and global), storage guard, streamed body limit, admin login limits, error log.
+- [x] Links expire 30 days after creation (lazy + cron), `expires_at` in API responses, date on the landing page.
+- [ ] Set the admin password (hash stored in D1 `settings`).
+
 ## Phase 3 — polish / growth
 
 - [ ] Android Play Install Referrer → auto-import after install.

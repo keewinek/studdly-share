@@ -19,12 +19,41 @@ Studdly's audience includes **children** (design bar: an 8-year-old). A public "
 
 **Never use Cloudflare challenges** (Bot Fight Mode, Under Attack Mode, Managed/JS/Interactive Challenge rules) on `share.studdly.app`: the app and link-preview bots cannot pass them. Use Worker rate limits (`429`) and Block rules only. Settings list: `INFRA.md` §5.
 
+## Limits (all in `src/lib/limits.ts` + rate-limit bindings in `wrangler.jsonc`)
+
+| Limit | Value | Response |
+|-------|-------|----------|
+| Creates per IP hash per minute | 10 | `429 rate_limited` |
+| Creates per IP hash per UTC day | 100 (school NATs share an IP) | `429 daily_limit_reached`, `Retry-After: 3600` |
+| Creates by everyone per UTC day | 5 000 | `503 capacity_reached` + Discord alert |
+| Payload shard size | warn at 350 MB, refuse at 480 MB | `503 storage_full` + Discord alert |
+| Request body | 1 MiB, read as a stream and aborted past the limit | `413 payload_too_large` |
+| Code lookups per IP hash per minute | 120 (+ 20 unknown codes → 1 min block) | `429` / friendly HTML page |
+| Reports per IP hash per minute | 5; one per code per day | always `202` |
+| Admin logins per IP hash | 5/min, 20 failures/day | `429` |
+| Link lifetime | 30 days from creation | `410 expired` |
+
+Retries of an already-created share (same owner secret) don't count against daily quotas.
+
+## Error handling
+
+- Every API error is JSON `{ error, message }` with a stable code; `503` always carries `Retry-After`. Unhandled exceptions → `503 storage_unavailable` for `/api/*`, friendly localized HTML (`503`) for pages — never a stack trace.
+- Server errors are logged to D1 `events` (shown on the dashboard) and counted in metrics; storage failures during create keep the pending row so a retry with the same secret finishes it.
+- Metrics/alerts are best effort and can never fail a request.
+
+## Admin dashboard security
+
+- Password never leaves the browser in clear text: the page sends `sha256(password)`; the server stores `sha256(sha256(password))` in D1 `settings` (not in this public repo) and compares in constant time.
+- Session: HMAC-signed cookie (`HttpOnly; Secure; SameSite=Strict`, 12 h), key rotated on password change. Cookie writes require a same-origin `Origin` header.
+- Brute force: 5 attempts/min and 20 failures/day per IP hash. Use a long random password.
+- Pages: `noindex`, `no-store`, `X-Frame-Options: DENY`, strict CSP; all user content escaped. `/admin*` is excluded from iOS Universal Links; the Android app opens non-topic `share.studdly.app` URLs in a browser tab.
+
 ## Privacy (GDPR / kids)
 
 - **No accounts, no cookies, no analytics scripts** on the landing page.
 - IPs are used transiently for rate limiting; anything persisted (report dedupe) is `HMAC-SHA256(ip, IP_HASH_SALT)` truncated to 16 bytes; salt rotated yearly.
 - Stored per share: content, title, language, counts, sizes, timestamps, app version, owner hash. Nothing that identifies a person by design.
-- Retention: 365 days after last access, or immediately on owner delete / takedown (payload row deleted, metadata row kept as a tombstone without content so the code isn't reused and the app gets a clean `410`).
+- Retention: **30 days after creation** (then `410 expired`, payload deleted), or immediately on owner delete / takedown (payload deleted, metadata row kept as a tombstone without content so the code isn't reused and the app gets a clean `410`). Reports are kept 365 days, error events 14 days, daily counters 120 days.
 - **The app's privacy policy must be updated before launch** to mention that sharing uploads the generated learning path (not scans) to Cloudflare, that anyone with the link can see it, and how to request deletion.
   - Current policy URL: `https://studdly.netlify.app/privacy_policy` (the old `studdly.pl/privacy-policy` URL was dead; the app manifest/plist were updated on 2026-09-26 — also update it in Play Console and App Store Connect).
 

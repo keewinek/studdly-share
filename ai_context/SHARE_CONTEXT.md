@@ -18,7 +18,7 @@ Client-side (Flutter) spec lives in the app repo: `keewinek/studdly` → `ai_con
 
 ## What it is
 
-`share.studdly.app` is a tiny, free-to-run service that lets a Studdly user turn a **ready learning path** (topic → sub-topics → quizzes) into a short public link like `https://share.studdly.app/k4Rf8`, and lets anyone who opens that link **import the same learning path** into their own Studdly app — without scanning anything and without spending AI tokens.
+`share.studdly.app` is a tiny, free-to-run service (with an owner dashboard at `/admin`) that lets a Studdly user turn a **ready learning path** (topic → sub-topics → quizzes) into a short public link like `https://share.studdly.app/k4Rf8`, and lets anyone who opens that link **import the same learning path** into their own Studdly app — without scanning anything and without spending AI tokens.
 
 It is one Cloudflare Worker that serves:
 
@@ -66,12 +66,13 @@ It is one Cloudflare Worker that serves:
 | D4 | **Share codes are random, 5 chars (owner's decision), 49-symbol alphabet with no vowels and no look-alikes** (`23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz`). Clients and well-known files **accept 5–6 chars** from day one. | 49⁵ ≈ 282 million codes — plenty for years (collision on insert is retried). Guessing is throttled by the miss-rate limit (`SECURITY.md`). No vowels ⇒ random codes can't spell rude words (kids' audience). No `0/O/1/l/I` ⇒ readable aloud. Accepting 6 chars in the app now means the server can switch new links to 6 chars later without an app update. |
 | D5 | **Idempotent create via a client-generated `owner_secret`** (32 random bytes, stored in the app *before* the request). The server stores only `sha256(owner_secret)` (unique). | Mobile networks time out after the server already committed. Retrying with the same secret returns the same code instead of creating duplicates. The same secret later authorizes `DELETE` ("stop sharing") without any accounts. |
 | D6 | **No accounts, no auth for reading.** Anyone with the link can read. | Matches "send a link to a classmate". Content is study material, not private data (see D3). |
-| D7 | **Shares don't expire while people use them.** A share not opened for **365 days** is deleted by a daily cron. | Storage stays bounded, and the app's "check → re-upload if gone" flow makes expiry invisible to senders. |
+| D7 | **A link works for 30 days after it is created** (owner's decision, `LIMITS.shareTtlDays`). Then it answers `410 expired` and its payload is deleted (lazily on first access after expiry, and by the daily cron). | Bounded storage and fresh content. The app's "check → re-upload if gone" flow gives the sender a new link automatically on the next tap. |
 | D8 | **Payload is immutable per code.** Changing content = new code. | Lets clients/CDN cache payloads, keeps imports reproducible, simplifies moderation (a reviewed code can't be swapped). |
 | D9 | **Landing page is server-rendered by the Worker** (no SPA) with per-share Open Graph tags, `noindex`, strict CSP, text-only rendering | Rich previews in chat apps are the main acquisition surface. `noindex` stops the domain from becoming an SEO spam host. |
 | D10 | **`/api/v1` versioning + `schema` field in payload** | Old app versions keep working when the payload evolves; the app refuses to import a schema it doesn't understand and asks the user to update. |
 | D11 | **Free plan hard limits are a feature** — there is no way to get a surprise bill. Break-glass = Workers Paid ($5/month) which raises every limit by 100×. | "Darmowe i niezawodne": the capacity math in `INFRA.md` shows ~35× headroom at today's scale. |
-| D12 | **Re-tap offline → remembered link** (owner's decision). Only a definite `404`/`410` triggers a re-upload. | The link almost never dies (D7), and sharing must not fail just because the phone is offline for a moment. |
+| D12 | **Re-tap offline → remembered link** (owner's decision). Only a definite `404`/`410` triggers a re-upload. | Sharing must not fail just because the phone is offline for a moment; an expired link is replaced on the next online tap. |
+| D14 | **Owner dashboard at `/admin`** (server-rendered, Polish). Password hashed with SHA-256 in the browser; the server stores only `sha256(that digest)` in D1 `settings` (never in the public repo). | One place to see the whole system: health, traffic, storage, limits, moderation, errors, and every stored topic. |
 | D13 | **No key-less mode for recipients** (owner's decision). Import happens only after onboarding is complete. | Keeps the app's onboarding rules (`APP_CONTEXT.md`: one provider, one key) unchanged. |
 
 ## Non-negotiables

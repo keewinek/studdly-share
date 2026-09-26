@@ -112,7 +112,7 @@ describe('reading shares', () => {
     const { code, created_at } = await createOk();
     const status = await get(`/api/v1/shares/${code}/status`);
     expect(status.status).toBe(200);
-    expect(await status.json()).toEqual({ status: 'active', created_at });
+    expect(await status.json()).toEqual({ status: 'active', created_at, expires_at: created_at + 30 * 86_400 });
 
     const res = await get(`/api/v1/shares/${code}`);
     expect(res.status).toBe(200);
@@ -215,7 +215,7 @@ describe('reports', () => {
 describe('admin', () => {
   it('is hidden without the token and can take a share down with it', async () => {
     const { code } = await createOk();
-    expect((await SELF.fetch(`${BASE}/api/admin/shares/${code}`, { method: 'DELETE' })).status).toBe(404);
+    expect((await SELF.fetch(`${BASE}/api/admin/shares/${code}`, { method: 'DELETE' })).status).toBe(401);
     const res = await SELF.fetch(`${BASE}/api/admin/shares/${code}`, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer test-admin-token' },
@@ -279,6 +279,10 @@ describe('well-known files', () => {
     const body = (await res.json()) as { applinks: { details: { appIDs: string[]; components: { '/': string }[] }[] } };
     expect(body.applinks.details[0]?.appIDs).toEqual(['NQT6HQRV63.com.studdly.app']);
     expect(body.applinks.details[0]?.components.map((c) => c['/'])).toContain('/?????');
+    const components = body.applinks.details[0]!.components as { '/': string; exclude?: boolean }[];
+    const adminIdx = components.findIndex((c) => c['/'] === '/admin' && c.exclude);
+    expect(adminIdx).toBeGreaterThanOrEqual(0);
+    expect(adminIdx).toBeLessThan(components.findIndex((c) => c['/'] === '/?????'));
   });
 
   it('serves assetlinks.json from configured fingerprints', async () => {
@@ -290,10 +294,39 @@ describe('well-known files', () => {
   });
 });
 
-describe('daily maintenance', () => {
-  it('expires shares not opened for a year and cleans stale pending rows', async () => {
+describe('30-day expiry', () => {
+  it('returns expires_at = created_at + 30 days', async () => {
+    const body = (await createOk()) as { code: string; created_at: number; expires_at?: number };
+    expect(body.expires_at).toBe(body.created_at + 30 * 86_400);
+    const status = (await (await get(`/api/v1/shares/${body.code}/status`)).json()) as { expires_at: number };
+    expect(status.expires_at).toBe(body.expires_at);
+  });
+
+  it('treats an active share past 30 days as expired right away, even before the cron', async () => {
+    const secret = newSecret();
+    const { code } = await createOk(samplePayload(), secret);
+    await testEnv.DB.prepare('UPDATE shares SET created_at = created_at - ? WHERE code = ?').bind(30 * 86_400 + 5, code).run();
+
+    const status = await get(`/api/v1/shares/${code}/status`);
+    expect(status.status).toBe(410);
+    expect(await status.json()).toMatchObject({ reason: 'expired' });
+    expect((await get(`/${code}`)).status).toBe(410);
+
+    // A retry with the old secret must not resurrect the expired link.
+    expect((await createShare(samplePayload(), secret)).status).toBe(409);
+  });
+
+  it('shows the expiry date on the landing page', async () => {
     const { code } = await createOk();
-    await testEnv.DB.prepare('UPDATE shares SET last_accessed_day = ? WHERE code = ?').bind(unixDay() - 400, code).run();
+    const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();
+    expect(html).toContain('Link działa do');
+  });
+});
+
+describe('daily maintenance', () => {
+  it('expires shares 30 days after creation and cleans stale pending rows', async () => {
+    const { code } = await createOk();
+    await testEnv.DB.prepare('UPDATE shares SET created_at = created_at - ? WHERE code = ?').bind(31 * 86_400, code).run();
 
     const now = Math.floor(Date.now() / 1000);
     await reserve(testEnv, {

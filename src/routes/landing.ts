@@ -2,9 +2,11 @@ import { Hono, type Context } from 'hono';
 import type { AppContext, Env } from '../env';
 import { pickStrings, type Strings } from '../i18n';
 import { gunzip } from '../lib/crypto';
+import { escapeHtml } from '../lib/html';
 import { lookupShare } from '../lib/lookup';
 import type { PayloadV1 } from '../lib/payload';
-import { readPayload, touch } from '../lib/store';
+import { expiresAt, readPayload } from '../lib/store';
+import { count, countShare } from '../lib/metrics';
 
 const MAX_LISTED_LESSONS = 12;
 
@@ -18,15 +20,6 @@ const PAGE_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
 };
-
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 type Platform = 'android' | 'ios' | 'desktop';
 
@@ -107,7 +100,7 @@ ${body}
 </html>`;
 }
 
-function messagePage(c: Context<AppContext>, t: Strings, heading: string, text: string, status: 404 | 410 | 429): Response {
+export function messagePage(c: Context<AppContext>, t: Strings, heading: string, text: string, status: 404 | 410 | 429 | 503): Response {
   const platform = platformOf(c.req.header('User-Agent'));
   const html = page({
     t,
@@ -129,15 +122,25 @@ landing.get('/:code', async (c) => {
   const t = pickStrings(c.req.header('Accept-Language'));
   const code = c.req.param('code');
   const result = await lookupShare(c, code);
-  if (result.kind === 'rate_limited') return messagePage(c, t, t.busyTitle, t.busyBody, 429);
-  if (result.kind === 'not_found') return messagePage(c, t, t.notFoundTitle, t.notFoundBody, 404);
-  if (result.kind === 'gone') return messagePage(c, t, t.goneTitle, t.goneBody, 410);
+  if (result.kind === 'rate_limited') {
+    count('rate_limited');
+    return messagePage(c, t, t.busyTitle, t.busyBody, 429);
+  }
+  if (result.kind === 'not_found') {
+    count('not_found');
+    return messagePage(c, t, t.notFoundTitle, t.notFoundBody, 404);
+  }
+  if (result.kind === 'gone') {
+    count('gone');
+    return messagePage(c, t, t.goneTitle, t.goneBody, 410);
+  }
 
   const { row } = result;
   const gz = await readPayload(c.env, row.payload_shard, row.code);
   if (!gz) return messagePage(c, t, t.notFoundTitle, t.notFoundBody, 404);
   const payload = JSON.parse(await gunzip(gz)) as PayloadV1;
-  c.executionCtx.waitUntil(touch(c.env, row.code));
+  count('view');
+  countShare(row.code, 'views');
 
   const platform = platformOf(c.req.header('User-Agent'));
   const shareUrl = `${c.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/${row.code}`;
@@ -168,6 +171,7 @@ ${openUrl ? `<a class="btn primary" href="${escapeHtml(openUrl)}">${escapeHtml(t
 ${storeButtons(c.env, t, platform, row.code)}
 </div>
 <p class="muted hint">${escapeHtml(t.installHint)}</p>
+<p class="muted hint">${escapeHtml(t.validUntil(new Intl.DateTimeFormat(t.lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(expiresAt(row) * 1000))))}</p>
 <details class="report" data-code="${row.code}">
 <summary>${escapeHtml(t.report)}</summary>
 <p>${escapeHtml(t.reportQuestion)}</p>

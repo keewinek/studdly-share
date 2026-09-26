@@ -27,6 +27,8 @@ wellKnown.get('/apple-app-site-association', (c) => {
           appIDs: [c.env.APPLE_APP_ID],
           components: [
             { '/': '/api/*', exclude: true },
+            { '/': '/admin', exclude: true },
+            { '/': '/admin/*', exclude: true },
             { '/': '/.well-known/*', exclude: true },
             { '/': '/?????', comment: 'share code (5 chars, current)' },
             { '/': '/??????', comment: 'share code (6 chars, reserved)' },
