@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "studdly-share",
+  "account_id": "3a683c190c3642e01dc1113896acd5f4",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-15",
   "workers_dev": true,
@@ -9,18 +10,18 @@
 
   // Two D1 databases: small metadata + growing payloads. More payload shards
   // (PAYLOADS_2, …) can be added later; see ai_context/INFRA.md.
-  // database_id values are filled in by scripts/ensure-d1.mjs in CI.
+  // Created in WEUR. scripts/ensure-d1.mjs re-checks them in CI (and creates new shards).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "studdly-share-meta",
-      "database_id": "00000000-0000-0000-0000-000000000001",
+      "database_id": "33712324-ce8c-46b5-88ba-bffa614b88bc",
       "migrations_dir": "migrations/meta"
     },
     {
       "binding": "PAYLOADS_1",
       "database_name": "studdly-share-payloads-1",
-      "database_id": "00000000-0000-0000-0000-000000000002",
+      "database_id": "c8c99399-5200-46ca-8d36-b3d580c72972",
       "migrations_dir": "migrations/payloads"
     }
   ],

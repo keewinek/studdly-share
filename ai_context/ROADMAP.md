@@ -33,7 +33,8 @@
 - [x] Daily cron: expiry, pending cleanup, stats + shard-size warning.
 - [x] Tests (29): validation, idempotent retry, pending recovery, collisions, status transitions, report threshold, XSS escaping, well-known files, cron.
 - [x] CI + deploy workflow (deploys once Cloudflare secrets are set).
-- [ ] First production deploy (needs the owner's Cloudflare token/account id in GitHub secrets).
+- [x] D1 databases created in the owner's account (WEUR).
+- [ ] First production deploy (needs the owner's `CLOUDFLARE_API_TOKEN` GitHub secret and the `studdly.app` zone active on Cloudflare).
 - [ ] Cloudflare WAF rate-limiting rule on `/api/v1/shares` (dashboard, optional second layer).
 - [ ] Landing copy for es, de, fr, uk, hi, id (fall back to English today).
 - [ ] Measure p99 CPU of `POST` for large "exact" topics in Workers Observability after launch.

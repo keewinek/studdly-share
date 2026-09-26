@@ -150,14 +150,15 @@ scripts/sync-secrets.mjs# CI: upload optional secrets, create IP_HASH_SALT once
 .github/workflows/moderate.yml # manual takedown / restore of a share code
 ```
 
-**Deploy pipeline (`deploy.yml`, on every push to `main`):** `npm ci` → typecheck → tests → *(only if `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets exist)* ensure D1 databases → `d1 migrations apply --remote` (meta + payload shards) → `wrangler deploy --var GIT_SHA:<sha>` (creates the `share.studdly.app` custom domain + certificate) → sync secrets → smoke test `/api/v1/health`.
+**Deploy pipeline (`deploy.yml`, on every push to `main`):** `npm ci` → typecheck → tests → *(only if the `CLOUDFLARE_API_TOKEN` repo secret exists)* ensure D1 databases → `d1 migrations apply --remote` (meta + payload shards) → `wrangler deploy --var GIT_SHA:<sha>` (creates the `share.studdly.app` custom domain + certificate) → sync secrets → smoke test `/api/v1/health`.
+
+**Cloudflare account:** `keewinek@gmail.com` (`account_id` `3a683c190c3642e01dc1113896acd5f4`, set in `wrangler.jsonc`). D1 databases `studdly-share-meta` (`33712324-…`) and `studdly-share-payloads-1` (`c8c99399-…`) were created in WEUR on 2026-09-26; migrations are applied by CI.
 
 **GitHub repo secrets:**
 
 | Secret | Required | Purpose |
 |---|---|---|
 | `CLOUDFLARE_API_TOKEN` | yes | "Edit Cloudflare Workers" template + Account D1 Edit + Zone DNS Edit (zone `studdly.app`) |
-| `CLOUDFLARE_ACCOUNT_ID` | yes | target account |
 | `DISCORD_MODERATION_WEBHOOK` | optional | report notifications |
 | `DISCORD_STATS_WEBHOOK` | optional | daily stats + shard-size warnings |
 | `ADMIN_TOKEN` | optional | enables `/api/admin/*` (the `moderate.yml` workflow works without it) |
