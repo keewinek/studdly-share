@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studdly-share",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+  "workers_dev": true,
+  "routes": [{ "pattern": "share.studdly.app", "custom_domain": true }],
+  "assets": { "directory": "public", "binding": "ASSETS" },
+
+  // Two D1 databases: small metadata + growing payloads. More payload shards
+  // (PAYLOADS_2, …) can be added later; see ai_context/INFRA.md.
+  // database_id values are filled in by scripts/ensure-d1.mjs in CI.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "studdly-share-meta",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations/meta"
+    },
+    {
+      "binding": "PAYLOADS_1",
+      "database_name": "studdly-share-payloads-1",
+      "database_id": "00000000-0000-0000-0000-000000000002",
+      "migrations_dir": "migrations/payloads"
+    }
+  ],
+
+  "ratelimits": [
+    { "name": "RL_CREATE", "namespace_id": "4101", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_READ", "namespace_id": "4102", "simple": { "limit": 120, "period": 60 } },
+    { "name": "RL_REPORT", "namespace_id": "4103", "simple": { "limit": 5, "period": 60 } },
+    { "name": "RL_MISS", "namespace_id": "4104", "simple": { "limit": 20, "period": 60 } }
+  ],
+
+  "vars": {
+    "PUBLIC_BASE_URL": "https://share.studdly.app",
+    "PAYLOAD_WRITE_SHARD": "1",
+    "APPLE_APP_ID": "NQT6HQRV63.com.studdly.app",
+    "ANDROID_PACKAGE": "com.studdly.app",
+    // Comma-separated SHA-256 cert fingerprints (Play App Signing + upload key).
+    // Empty = /.well-known/assetlinks.json returns 404 until filled in.
+    "ANDROID_CERT_SHA256": "",
+    "PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=com.studdly.app",
+    "APP_STORE_URL": "https://apps.apple.com/app/studdly/id6755741754",
+    "PRIVACY_POLICY_URL": "https://studdly.netlify.app/privacy_policy"
+  },
+
+  "triggers": { "crons": ["17 3 * * *"] },
+  "observability": { "enabled": true }
+}

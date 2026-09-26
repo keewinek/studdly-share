@@ -20,19 +20,23 @@
 - [x] Fix the broken privacy-policy URL in the app → `https://studdly.netlify.app/privacy_policy` (done in the app repo 2026-09-26).
 - [ ] Same URL in Play Console + App Store Connect; add a "Sharing" section to the policy.
 
-## Phase 1 — backend MVP (this repo)
+## Phase 1 — backend MVP (this repo) — ✅ implemented 2026-09-26
 
-- [ ] Scaffold: `wrangler`, TypeScript, Hono, Zod/Valibot, Vitest + `@cloudflare/vitest-pool-workers`, ESLint/Prettier.
-- [ ] `migrations/0001_init.sql`, D1 + R2 bindings for staging and prod.
-- [ ] `POST /api/v1/shares` (idempotent), `GET .../status`, `GET /api/v1/shares/{code}`, `DELETE` (owner), health.
-- [ ] Code generator (rejection sampling) + regex guard.
-- [ ] Rate limits (binding + WAF rule).
-- [ ] Landing page (PL/EN first), 404/410 page, OG tags, CSP, `robots.txt`, static assets.
-- [ ] `assetlinks.json`, `apple-app-site-association`.
-- [ ] Reports endpoint + Discord moderation webhook + admin takedown/restore.
-- [ ] Daily cron: expiry, pending cleanup, stats.
-- [ ] Tests: validation limits, idempotent retry, collision retry, pending recovery, status transitions, report threshold, HTML escaping (XSS payloads in title/content), well-known files content-type.
-- [ ] CI + deploy workflows; staging auto-deploy.
+- [x] Scaffold: wrangler, TypeScript, Hono, hand-written validator, Vitest + `@cloudflare/vitest-pool-workers`.
+- [x] Migrations for metadata DB + payload shard; storage moved from R2 to D1 shards (no card needed).
+- [x] `POST /api/v1/shares` (idempotent), `GET .../status`, `GET /api/v1/shares/{code}`, `DELETE` (owner), health.
+- [x] Code generator (rejection sampling, 5 chars) + regex guard (5–6).
+- [x] Rate limits (bindings) + miss-block anti-enumeration.
+- [x] Landing page (PL/EN), 404/410/429 pages, OG tags, CSP, `robots.txt`, static assets.
+- [x] `assetlinks.json` (needs `ANDROID_CERT_SHA256`), `apple-app-site-association` (Team ID `NQT6HQRV63`).
+- [x] Reports endpoint + Discord moderation webhook + admin takedown/restore + `moderate.yml` workflow.
+- [x] Daily cron: expiry, pending cleanup, stats + shard-size warning.
+- [x] Tests (29): validation, idempotent retry, pending recovery, collisions, status transitions, report threshold, XSS escaping, well-known files, cron.
+- [x] CI + deploy workflow (deploys once Cloudflare secrets are set).
+- [ ] First production deploy (needs the owner's Cloudflare token/account id in GitHub secrets).
+- [ ] Cloudflare WAF rate-limiting rule on `/api/v1/shares` (dashboard, optional second layer).
+- [ ] Landing copy for es, de, fr, uk, hi, id (fall back to English today).
+- [ ] Measure p99 CPU of `POST` for large "exact" topics in Workers Observability after launch.
 
 ## Phase 2 — app integration (repo `keewinek/studdly`, spec `ai_context/TOPIC_SHARING.md`)
 

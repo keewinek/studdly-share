@@ -1,0 +1,23 @@
+{
+  "name": "studdly-share",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local && wrangler d1 migrations apply PAYLOADS_1 --local",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.13.9"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260926.1",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "^4.141.0"
+  }
+}

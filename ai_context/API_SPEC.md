@@ -41,28 +41,30 @@ Responses:
 | `200` | `{ "code", "url", "created_at" }` | Same `owner_secret` already created a share (retry after timeout) — returns the original, **ignores the new body** |
 | `400 invalid_json` / `400 invalid_payload` | + optional `"issues": [{ "path", "problem" }]` | Schema/limit violation |
 | `401 missing_owner_secret` | | No/invalid bearer |
+| `409 owner_secret_reused` | | The secret belongs to a share that was deleted/expired/removed — the app must generate a new secret and retry |
 | `413 payload_too_large` | | Body > 1 MiB, or limits in the table below |
 | `415 unsupported_media_type` | | Not JSON |
 | `422 unsupported_schema` | | `schema` newer than the server knows |
 | `429 rate_limited` | `Retry-After` header | Too many creates from this client |
-| `503 storage_unavailable` | `Retry-After` header | D1/R2 failure; safe to retry with the **same** secret |
+| `503 storage_unavailable` | `Retry-After` header | D1 failure; safe to retry with the **same** secret |
 
 Algorithm (Worker):
 
-1. Rate-limit (key = IP hash). Parse & validate with Zod (strict, unknown keys rejected).
+1. Rate-limit (key = IP hash). Parse & validate with the hand-written strict validator in `src/lib/payload.ts` (unknown keys rejected).
 2. `owner_hash = sha256(owner_secret)`. `SELECT code, status FROM shares WHERE owner_hash = ?`
    - found `active` → `200` with that code.
-   - found `pending` → continue from step 5 with that code (previous attempt died mid-way).
+   - found `pending` → refresh the row with this attempt's details and continue from step 5 with that code (previous attempt died mid-way).
+   - found `deleted` / `expired` / `removed*` → `409 owner_secret_reused`.
 3. Canonicalize payload (re-serialize the *validated* object, so unknown whitespace/fields never reach storage), gzip it (`CompressionStream`), compute `content_sha256`.
-4. Generate code → `INSERT INTO shares (..., status='pending')`. On PK collision, regenerate (max 5 tries, then `503`; at 1M stored shares a single collision is ~0.35 %, five in a row is practically impossible). The row **reserves** the code before any R2 write, so a collision can never overwrite someone else's payload.
-5. `R2.put("v1/<code>.json.gz", gz, { httpMetadata: { contentType: "application/json", contentEncoding: "gzip" } })`.
+4. Generate code → `INSERT INTO shares (..., status='pending')`. On PK collision, regenerate (max 5 tries, then `503`; at 1M stored shares a single collision is ~0.35 %, five in a row is practically impossible). The row **reserves** the code before any payload write, so a collision can never overwrite someone else's payload.
+5. `INSERT OR REPLACE INTO payloads (code, body)` in the current write shard (`PAYLOADS_<PAYLOAD_WRITE_SHARD>`); the shard number is stored in `shares.payload_shard`.
 6. `UPDATE shares SET status='active' WHERE code=?` → `201`.
 
-A daily cron deletes rows stuck in `pending` for > 1 hour (and their R2 object if any).
+A daily cron deletes rows stuck in `pending` for > 1 hour (and their payload row if any).
 
 ### `GET /api/v1/shares/{code}/status` — is it still shared?
 
-Used by the sender's app on the second+ tap. Reads **one D1 row**, never R2.
+Used by the sender's app on the second+ tap. Reads **one metadata row**, never the payload.
 
 | Status | Body |
 |--------|------|
@@ -79,14 +81,14 @@ Used by the sender's app on the second+ tap. Reads **one D1 row**, never R2.
 | `200` | `{ "code", "created_at", "payload": <Share payload v1> }` |
 | `404` / `410` | as above |
 
-- Served gzip-encoded straight from R2 (Worker `Response` with `encodeBody: "manual"` so the stored gzip is passed through without re-compression).
+- Payload is read from its shard, gunzipped and wrapped; Cloudflare compresses the response for the client. Supports `If-None-Match` → `304`.
 - `Cache-Control: public, max-age=300` (short, so moderation takedowns propagate quickly), `ETag: "<content_sha256>"`.
 - Touches `last_accessed_day` at most once per day per share (`UPDATE ... WHERE code=? AND last_accessed_day < ?today`) — keeps D1 writes tiny.
 
 ### `DELETE /api/v1/shares/{code}` — stop sharing (owner)
 
 Header `Authorization: Bearer <owner_secret>`. `sha256(secret)` must equal the row's `owner_hash`.
-`204` on success (row → `status='deleted'`, R2 object deleted). `403 forbidden` on mismatch. Idempotent (`204` again if already deleted by the owner).
+`204` on success (row → `status='deleted'`, payload row deleted). `403 forbidden` on mismatch. Idempotent (`204` again if already deleted by the owner).
 v1 app does not expose this in UI yet; the endpoint exists so we can add "Stop sharing" and GDPR deletion without a migration.
 
 ### `POST /api/v1/shares/{code}/reports` — report content
@@ -96,7 +98,7 @@ Body: `{ "reason": "inappropriate" | "personal_data" | "copyright" | "spam" | "o
 
 ### `DELETE /api/admin/shares/{code}` — takedown (admin)
 
-Header `Authorization: Bearer <ADMIN_TOKEN>` (Worker secret). Sets `status='removed'`, deletes R2 object. `POST /api/admin/shares/{code}/restore` reverses a `removed_pending_review`.
+Header `Authorization: Bearer <ADMIN_TOKEN>` (Worker secret). Sets `status='removed'`, deletes the payload row. Without `ADMIN_TOKEN` these routes return 404; the `Moderate a share` GitHub workflow does the same via `wrangler d1 execute`. `POST /api/admin/shares/{code}/restore` reverses a `removed_pending_review`.
 
 ### Other routes
 
@@ -143,46 +145,21 @@ Rules:
 
 ---
 
-## D1 schema (`migrations/0001_init.sql`)
+## D1 schema
 
-```sql
-CREATE TABLE shares (
-  code               TEXT PRIMARY KEY,
-  owner_hash         TEXT NOT NULL UNIQUE,          -- sha256(owner_secret), hex
-  status             TEXT NOT NULL DEFAULT 'pending',
-                     -- pending | active | deleted | expired | removed | removed_pending_review
-  schema_version     INTEGER NOT NULL,
-  title              TEXT NOT NULL,                 -- copy for OG tags + moderation
-  language           TEXT NOT NULL,
-  sub_topic_count    INTEGER NOT NULL,
-  question_count     INTEGER NOT NULL,
-  size_gz_bytes      INTEGER NOT NULL,
-  content_sha256     TEXT NOT NULL,
-  app_version        TEXT,
-  created_at         INTEGER NOT NULL,              -- unix seconds
-  last_accessed_day  INTEGER NOT NULL,              -- unix day (seconds / 86400)
-  report_count       INTEGER NOT NULL DEFAULT 0,
-  status_changed_at  INTEGER
-);
-CREATE INDEX idx_shares_status_accessed ON shares (status, last_accessed_day);
-CREATE INDEX idx_shares_reports ON shares (report_count) WHERE report_count > 0;
+Metadata database `DB` — `migrations/meta/0001_init.sql` (source of truth; summary):
 
-CREATE TABLE reports (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  code        TEXT NOT NULL,
-  ip_hash     TEXT NOT NULL,                        -- HMAC(ip, IP_HASH_SALT) truncated; rotates salt yearly
-  reason      TEXT NOT NULL,
-  details     TEXT,
-  day         INTEGER NOT NULL,                     -- unix day; one report per IP per code per day
-  created_at  INTEGER NOT NULL,
-  UNIQUE (code, ip_hash, day)
-);
-```
+- `shares(code PK, owner_hash UNIQUE, status, payload_shard, schema_version, title, language, sub_topic_count, question_count, size_gz_bytes, content_sha256, app_version, created_at, last_accessed_day, report_count, status_changed_at)`
+  - `status`: `pending | active | deleted | expired | removed | removed_pending_review`
+  - indexes: `(status, last_accessed_day)`, `(status, created_at)`
+- `reports(id PK, code, ip_hash, reason, details, day, created_at, UNIQUE(code, ip_hash, day))` — `ip_hash` = HMAC(ip, `IP_HASH_SALT`) truncated
 
-R2 layout: `v1/<code>.json.gz`. Nothing else lives in the bucket.
+Payload shards `PAYLOADS_<n>` — `migrations/payloads/0001_init.sql`:
 
-## Cron (daily, `0 3 * * *` UTC)
+- `payloads(code PK, body BLOB)` — gzipped canonical payload JSON. Tombstoned shares keep their `shares` row (so codes are never reused) but lose their payload row.
 
-1. `status='active' AND last_accessed_day < today-365` → `expired`, delete R2 object (batch ≤ 500 per run).
-2. `status='pending' AND created_at < now-3600` → delete row + R2 object if present.
-3. Post a one-line stats message to Discord (shares created yesterday, active total, R2 bytes, reports open, % of daily Worker limit used via the GraphQL analytics API — optional).
+## Cron (daily, `17 3 * * *` UTC)
+
+1. `status='active' AND last_accessed_day < today-365` → `expired`, delete payload row (batch ≤ 500 per run).
+2. `status='pending' AND created_at < now-3600` → delete row + payload row if present.
+3. Post a one-line stats message to Discord (shares created yesterday, active total, awaiting review, expired/cleaned counts, stored MB per payload shard with a warning above 350 MB) to `DISCORD_STATS_WEBHOOK` if set.

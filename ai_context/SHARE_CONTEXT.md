@@ -1,6 +1,6 @@
 # SHARE_CONTEXT.md — studdly-share
 
-**Status:** design approved for implementation (nothing built yet) · **Updated:** 2026-09-26
+**Status:** backend implemented (this repo); app integration not started · **Updated:** 2026-09-26
 
 Single source of truth for **what** studdly-share is, **why** it is built this way, and the decisions behind it. Companion docs:
 
@@ -60,8 +60,8 @@ It is one Cloudflare Worker that serves:
 
 | # | Decision | Why |
 |---|----------|-----|
-| D1 | **Cloudflare Workers + D1 + R2**, TypeScript, Hono router | Only mainstream option that is *free with no card, no cold starts, no inactivity pausing, no non-commercial clause*, with a global edge and hard (not billed) limits. Full comparison in `INFRA.md`. |
-| D2 | **D1 = metadata, R2 = payload** (gzipped JSON) | D1 free is 500 MB per database — ~25k topics if we stored bodies there. R2 free is 10 GB (~500k topics) with zero egress. D1 gives a primary key / unique constraints / SQL for moderation. |
+| D1 | **Cloudflare Workers + D1**, TypeScript, Hono router | Only mainstream option that is *free with no card, no cold starts, no inactivity pausing, no non-commercial clause*, with a global edge and hard (not billed) limits. Full comparison in `INFRA.md`. |
+| D2 | **Metadata in D1 `DB`, gzipped payloads in D1 payload shards (`PAYLOADS_1`, …)** | R2 was the first plan but requires a card on file and bills overages; D1 needs no card and hard-stops at its limits. One shard = 500 MB ≈ 25k shares; up to 9 shards on the free plan. See `INFRA.md` §3. |
 | D3 | **Only AI-generated learning content is uploaded** — never OCR page text, never the user's name, device id, or progress | Smaller payload, far less copyright exposure (no verbatim textbook scans), no personal data from a kids' app. |
 | D4 | **Share codes are random, 5 chars (owner's decision), 49-symbol alphabet with no vowels and no look-alikes** (`23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz`). Clients and well-known files **accept 5–6 chars** from day one. | 49⁵ ≈ 282 million codes — plenty for years (collision on insert is retried). Guessing is throttled by the miss-rate limit (`SECURITY.md`). No vowels ⇒ random codes can't spell rude words (kids' audience). No `0/O/1/l/I` ⇒ readable aloud. Accepting 6 chars in the app now means the server can switch new links to 6 chars later without an app update. |
 | D5 | **Idempotent create via a client-generated `owner_secret`** (32 random bytes, stored in the app *before* the request). The server stores only `sha256(owner_secret)` (unique). | Mobile networks time out after the server already committed. Retrying with the same secret returns the same code instead of creating duplicates. The same secret later authorizes `DELETE` ("stop sharing") without any accounts. |

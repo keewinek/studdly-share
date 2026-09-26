@@ -4,11 +4,11 @@ Share-link service for [Studdly](https://studdly.app) learning paths: `https://s
 
 A Studdly user who finished AI analysis of a topic taps **Share** → the app uploads the generated learning path (sub-topics + quizzes, never the scanned pages) → gets a short link → friends open it and import the same path into their app, or see a preview page with store links if they don't have Studdly yet.
 
-**Status:** design phase — no code yet. Start with the docs below.
+**Status:** backend implemented and tested; deploys to Cloudflare from GitHub Actions once the Cloudflare secrets are set (see `ai_context/INFRA.md` §6).
 
-## Stack (planned)
+## Stack
 
-Cloudflare Workers (TypeScript + Hono) · D1 (metadata) · R2 (gzipped payloads) · Workers Static Assets (landing page assets) · Vitest. Runs on Cloudflare's **free plan** with ~35× headroom at today's scale — see [`ai_context/INFRA.md`](ai_context/INFRA.md).
+Cloudflare Workers (TypeScript + Hono) · D1 (metadata + gzipped payload shards) · Workers Static Assets (landing page assets) · Vitest. Runs on Cloudflare's **free plan** with ~35× headroom at today's scale — see [`ai_context/INFRA.md`](ai_context/INFRA.md).
 
 ## Docs
 
@@ -23,11 +23,12 @@ Cloudflare Workers (TypeScript + Hono) · D1 (metadata) · R2 (gzipped payloads)
 
 The Flutter client spec lives in the app repo: [`keewinek/studdly` → `ai_context/TOPIC_SHARING.md`](https://github.com/keewinek/studdly/blob/main/ai_context/TOPIC_SHARING.md).
 
-## Development (once scaffolded)
+## Development
 
 ```bash
 npm ci
-npx wrangler d1 migrations apply studdly-share --local
-npm run dev        # wrangler dev
-npm test           # vitest (workers pool, local D1/R2)
+npm run db:migrate:local
+npm run dev        # wrangler dev on http://localhost:8787
+npm test           # vitest (workers pool, local D1)
+npm run typecheck
 ```

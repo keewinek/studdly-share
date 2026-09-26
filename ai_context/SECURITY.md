@@ -7,7 +7,7 @@ Studdly's audience includes **children** (design bar: an 8-year-old). A public "
 | Threat | v1 mitigation | Later (if needed) |
 |--------|---------------|-------------------|
 | Free file hosting / spam links on `studdly.app` | Strict schema: only the learning-path shape, text only, size + count caps, unknown fields rejected. HTML renders text only (no links, no Markdown). `noindex` + `robots.txt Disallow` so SEO spam gains nothing. | Firebase **App Check** tokens (Play Integrity / App Attest) required on `POST` — verified in the Worker via Firebase JWKS. |
-| Flooding creates (fill R2 / exhaust daily quota) | Rate limit `POST` 10/min per IP-hash (Workers rate-limit binding) + Cloudflare WAF rate-limiting rule on `/api/v1/shares` as a second layer. Daily cap per IP-hash (e.g. 200 creates) tracked in D1. | App Check; per-device quotas. |
+| Flooding creates (fill payload storage / exhaust daily quota) | Rate limit `POST` 10/min per IP-hash (Workers rate-limit binding) + Cloudflare WAF rate-limiting rule on `/api/v1/shares` as a second layer. Daily cap per IP-hash (e.g. 200 creates) tracked in D1. | App Check; per-device quotas. |
 | Enumerating codes to scrape shares | 49⁵ ≈ 2.8·10⁸ code space (5-char codes, owner's decision). Invalid-format codes rejected before storage; read endpoints rate-limited 120/min per IP-hash; **misses (404) are rate-limited separately: 20/min per IP-hash**, after that every code lookup from that IP gets `429` for the rest of the window, so hits and misses look the same. At 50k live shares that caps a single IP at a handful of lucky hits per day — acceptable for study material with no personal data (D3). No listing endpoint exists. | Switch new links to 6 chars (apps already accept 5–6). |
 | XSS / HTML injection via titles or content | All output HTML-escaped; strict CSP (`default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; form-action 'none'; frame-ancestors 'none'`); no inline scripts; OG tag values escaped. | — |
 | Duplicate creates on flaky networks | Idempotent create keyed by `sha256(owner_secret)` (see `API_SPEC.md`). | — |
@@ -24,7 +24,7 @@ Studdly's audience includes **children** (design bar: an 8-year-old). A public "
 - **No accounts, no cookies, no analytics scripts** on the landing page.
 - IPs are used transiently for rate limiting; anything persisted (report dedupe) is `HMAC-SHA256(ip, IP_HASH_SALT)` truncated to 16 bytes; salt rotated yearly.
 - Stored per share: content, title, language, counts, sizes, timestamps, app version, owner hash. Nothing that identifies a person by design.
-- Retention: 365 days after last access, or immediately on owner delete / takedown (R2 object deleted, D1 row kept as a tombstone without content so the code isn't reused and the app gets a clean `410`).
+- Retention: 365 days after last access, or immediately on owner delete / takedown (payload row deleted, metadata row kept as a tombstone without content so the code isn't reused and the app gets a clean `410`).
 - **The app's privacy policy must be updated before launch** to mention that sharing uploads the generated learning path (not scans) to Cloudflare, that anyone with the link can see it, and how to request deletion.
   - Current policy URL: `https://studdly.netlify.app/privacy_policy` (the old `studdly.pl/privacy-policy` URL was dead; the app manifest/plist were updated on 2026-09-26 — also update it in Play Console and App Store Connect).
 

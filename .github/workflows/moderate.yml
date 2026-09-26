@@ -1,0 +1,44 @@
+name: Moderate a share
+
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: Share code (e.g. k4Rf8)
+        required: true
+      action:
+        description: remove = take down for good, restore = undo an auto-hide
+        type: choice
+        options: [remove, restore]
+        default: remove
+
+jobs:
+  moderate:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CODE: ${{ inputs.code }}
+      ACTION: ${{ inputs.action }}
+    steps:
+      - name: Validate code
+        run: |
+          if ! [[ "$CODE" =~ ^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,6}$ ]]; then
+            echo "::error::Not a valid share code"; exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/ensure-d1.mjs
+      - name: Apply
+        run: |
+          NOW=$(date +%s)
+          if [ "$ACTION" = "remove" ]; then
+            npx wrangler d1 execute DB --remote --command "UPDATE shares SET status='removed', status_changed_at=$NOW WHERE code='$CODE'"
+            npx wrangler d1 execute PAYLOADS_1 --remote --command "DELETE FROM payloads WHERE code='$CODE'"
+          else
+            npx wrangler d1 execute DB --remote --command "UPDATE shares SET status='active', status_changed_at=$NOW WHERE code='$CODE' AND status='removed_pending_review'"
+          fi

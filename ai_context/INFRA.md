@@ -16,7 +16,7 @@ Research date: **2026-09-26**. Re-verify limits on the linked pages before relyi
 
 | Option | Free tier (relevant parts) | Deal-breakers | Verdict |
 |--------|---------------------------|---------------|---------|
-| **Cloudflare Workers + D1 + R2** | Workers 100k req/day, 10 ms CPU/req; D1 5M rows read/day, 100k rows written/day, 500 MB/db, 5 GB/account; R2 10 GB, 1M class A + 10M class B ops/month, **free egress** | Needs the DNS zone on Cloudflare for a custom domain (see §5). 10 ms CPU budget → keep code lean. | ✅ **Chosen** |
+| **Cloudflare Workers + D1** | Workers 100k req/day, 10 ms CPU/req; D1 5M rows read/day, 100k rows written/day, 500 MB/db, 10 dbs, 5 GB/account — **hard limits, no card** | Needs the DNS zone on Cloudflare for a custom domain (see §5). 10 ms CPU budget → keep code lean. | ✅ **Chosen** |
 | Firebase (already in the app: Analytics) — Firestore + Hosting | Firestore 1 GiB, 50k reads/day, 20k writes/day, 1 MiB/doc | Cloud Functions (needed for OG tags, validation, rate limits, cron) require the **Blaze** plan (card on file, pay-as-you-go → possible surprise bill). Client-direct writes with Security Rules can't rate-limit well. | ❌ Plan B only |
 | Supabase | Postgres 500 MB, generous API | **Free projects pause after 7 days of inactivity** → links die. | ❌ |
 | Vercel Hobby (+ Neon) | Generous functions | Hobby is **non-commercial only**; Studdly is a published app → ToS risk / suspension. Neon adds cold starts. | ❌ |
@@ -26,7 +26,9 @@ Research date: **2026-09-26**. Re-verify limits on the linked pages before relyi
 
 Sources: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [R2 pricing](https://developers.cloudflare.com/r2/pricing/), [Firestore quotas](https://firebase.google.com/docs/firestore/quotas), [Supabase pausing](https://supabase.com/docs/guides/platform/free-project-pausing), [Vercel Hobby](https://vercel.com/docs/plans/hobby), [Netlify credit billing FAQ](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/billing-faq-for-credit-based-plans/).
 
-**Why not Workers KV as the store:** free KV allows only ~1k writes/day and is *eventually consistent* (up to ~60 s across locations) — a freshly created link could 404 for the recipient, and the "is it still shared?" check could lie. D1 (single primary) and R2 are read-after-write consistent.
+**Why not R2 for payloads (original plan):** enabling R2 requires a **payment method on file**, even for the free tier, and usage above the free tier is billed instead of refused. D1 needs no card and hard-stops at its limits, so payloads live in D1 "payload shards" (`PAYLOADS_1`, `PAYLOADS_2`, …). R2 stays an option if the owner ever adds a card.
+
+**Why not Workers KV as the store:** free KV allows only ~1k writes/day and is *eventually consistent* (up to ~60 s across locations) — a freshly created link could 404 for the recipient, and the "is it still shared?" check could lie. D1 (single primary) is read-after-write consistent.
 
 ## 3. Capacity math (why free is enough)
 
@@ -37,10 +39,10 @@ Assumptions (deliberately pessimistic for today): 30k installs → **3k DAU**; *
 | Worker requests | 150 create + 300 status + 750 opens × ~3 ≈ **2.7k** | 100k/day | ~3 % |
 | D1 rows written | 150 × 2 (pending→active) + ≤ 750 access bumps ≈ **1k** | 100k/day | ~1 % |
 | D1 rows read | ≈ **3k** | 5M/day | < 0.1 % |
-| R2 class A (writes) | 150/day ≈ 4.5k/month | 1M/month | < 1 % |
-| R2 class B (reads) | 750/day ≈ 23k/month | 10M/month | < 1 % |
-| R2 storage | 150 × ~20 KB gz ≈ 3 MB/day ≈ **1.1 GB/year** | 10 GB | ~9 years of growth before the 365-day expiry even matters |
-| D1 storage | ~0.5 KB/row → ~27 MB/year | 500 MB/db | ~5 % |
+| Payload storage (D1 shards) | 150 × ~20 KB gz ≈ 3 MB/day ≈ **1.1 GB/year** | 500 MB per shard, up to 9 shards (5 GB/account) | shard 1 fills in ~5 months at this pace; with the 365-day expiry steady state is ~1.1 GB ≈ 3 shards |
+| Metadata storage (D1 `DB`) | ~0.5 KB/row → ~27 MB/year | 500 MB | ~5 % |
+
+**Adding a payload shard** (the daily Discord stats warn at 350 MB): add a `PAYLOADS_<n+1>` entry to `wrangler.jsonc` (`database_name: studdly-share-payloads-<n+1>`, `migrations_dir: migrations/payloads`), add it to `Env` in `src/env.ts`, add its `migrations apply` line to `.github/workflows/deploy.yml`, set `PAYLOAD_WRITE_SHARD` to `n+1`, push. New shares go to the new shard; old ones keep reading from theirs (`shares.payload_shard`).
 
 **First wall:** Workers 100k requests/day ≈ **35× today's estimate**. A viral day (20×) still fits.
 
@@ -48,12 +50,12 @@ Assumptions (deliberately pessimistic for today): 30k installs → **3k DAU**; *
 
 **Break-glass:** Workers Paid **$5/month** → 10M requests/month included, D1 25B reads / 50M writes per month, 30 s CPU. Upgrade takes minutes, no code change. Trigger: cron stats show > 50 % of any daily limit on 3 days in a week.
 
-**Cheaper scale path before paying (only if ever needed):** serve payloads directly from a public R2 bucket on a custom subdomain (CDN-cached, no Worker invocation), keep the Worker only for create/status/landing.
+**Cheaper scale path before paying (only if ever needed):** cache `GET /api/v1/shares/{code}` responses in the Cache API (payloads are immutable), or — with a card on file — move payloads to R2 behind a CDN-cached public bucket.
 
 ## 4. CPU budget (10 ms on free)
 
 Heaviest request is `POST` (parse ≤ 1 MiB JSON, validate, gzip, SHA-256). Rules:
-- Validate with a small schema lib (Zod / Valibot); no per-field regex storms.
+- Validate with the small hand-written validator (`src/lib/payload.ts`); no heavy schema libraries, no per-field regex storms.
 - `crypto.subtle.digest` and `CompressionStream` are native.
 - Measure p99 CPU in Workers Observability after launch; if `POST` for "exact" topics trends > 8 ms, lower the size caps or move gzip to the client (`Content-Encoding: gzip` upload) before paying.
 
@@ -119,55 +121,56 @@ The challenge page ("Just a moment… / Verify you are human") only appears on *
 
 Abuse protection comes from the Worker's own rate limits + validation (`SECURITY.md`), not from challenges. After the migration, verify with `curl -A "Dart/3.5 (dart:io)" https://share.studdly.app/api/v1/health` and `curl -A "facebookexternalhit/1.1" https://share.studdly.app/<code>` — both must return the real response, not HTML with a challenge.
 
-## 6. Environments & deploy
+## 6. Environments & deploy (implemented)
 
-| Env | Host | D1 / R2 | Used by |
-|-----|------|---------|---------|
-| `staging` | `studdly-share-staging.<acct>.workers.dev` | `studdly-share-staging` db + bucket | debug builds (`--dart-define=SHARE_BASE_URL=...`), CI e2e |
-| `production` | `share.studdly.app` | `studdly-share` db + bucket | release builds |
+One environment: **production** (`share.studdly.app`, plus `studdly-share.<account>.workers.dev`). Local development uses `wrangler dev` with local D1; there is no staging yet (add one only when the app needs it).
 
-- Repo layout (planned):
-  ```
-  src/index.ts            # Hono app wiring + scheduled() cron
-  src/routes/api.ts       # /api/v1/*
-  src/routes/admin.ts     # /api/admin/*
-  src/routes/landing.ts   # /{code} HTML, 404/410 pages
-  src/routes/wellKnown.ts # assetlinks.json, apple-app-site-association
-  src/lib/code.ts         # share-code generator + validator
-  src/lib/schema.ts       # payload v1 schema + limits
-  src/lib/store.ts        # D1 + R2 access (the only place touching storage)
-  src/lib/rateLimit.ts
-  src/lib/i18n/*.json     # landing page copy (same language list as the app)
-  migrations/0001_init.sql
-  public/                 # static assets: css, logo, favicon, fonts (Workers Static Assets – free, not counted as Worker requests)
-  test/                   # Vitest + @cloudflare/vitest-pool-workers (real D1/R2 in miniflare)
-  wrangler.jsonc
-  .github/workflows/ci.yml, deploy.yml
-  ```
-- `wrangler.jsonc` sketch:
-  ```jsonc
-  {
-    "name": "studdly-share",
-    "main": "src/index.ts",
-    "compatibility_date": "2026-09-01",
-    "assets": { "directory": "public", "binding": "ASSETS" },
-    "d1_databases": [{ "binding": "DB", "database_name": "studdly-share", "database_id": "<id>" }],
-    "r2_buckets": [{ "binding": "PAYLOADS", "bucket_name": "studdly-share" }],
-    "ratelimits": [
-      { "name": "RL_CREATE", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
-      { "name": "RL_READ",   "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
-      { "name": "RL_REPORT", "namespace_id": "1003", "simple": { "limit": 5, "period": 60 } },
-      { "name": "RL_MISS",   "namespace_id": "1004", "simple": { "limit": 20, "period": 60 } }   // 404 lookups (anti-enumeration)
-    ],
-    "triggers": { "crons": ["0 3 * * *"] },
-    "observability": { "enabled": true },
-    "routes": [{ "pattern": "share.studdly.app", "custom_domain": true }],
-    "env": { "staging": { /* own name, db, bucket; workers_dev: true */ } }
-  }
-  ```
-- Secrets (`wrangler secret put`): `ADMIN_TOKEN`, `IP_HASH_SALT`, `DISCORD_MODERATION_WEBHOOK`, `DISCORD_STATS_WEBHOOK`. Never in git.
-- CI: `npm ci && npm run typecheck && npm test` on every push. Deploy: `main` → staging automatically; production on a git tag / manual workflow (`cloudflare/wrangler-action`, secret `CLOUDFLARE_API_TOKEN` scoped to Workers + D1 + R2 of this account). Migrations run with `wrangler d1 migrations apply --remote` **before** deploying code that needs them.
-- Rollback: `wrangler rollback` (instant). Data safety: D1 Time Travel (7 days on free) for point-in-time restore.
+Repo layout:
+```
+src/index.ts            # Hono app wiring + scheduled() cron
+src/env.ts              # bindings / vars / secrets
+src/cron.ts             # daily expiry, pending cleanup, Discord stats
+src/i18n.ts             # landing page copy (en, pl; others fall back to en)
+src/routes/api.ts       # /api/v1/*
+src/routes/admin.ts     # /api/admin/* (only when ADMIN_TOKEN is set)
+src/routes/landing.ts   # /{code} HTML, 404/410/429 pages
+src/routes/wellKnown.ts # assetlinks.json, apple-app-site-association
+src/lib/code.ts         # share-code generator + validator
+src/lib/payload.ts      # payload v1 validator + limits
+src/lib/store.ts        # all D1 access (the only place touching storage)
+src/lib/lookup.ts       # shared code lookup + rate limits + status mapping
+src/lib/rateLimit.ts, crypto.ts, http.ts, discord.ts
+migrations/meta/        # DB (metadata)
+migrations/payloads/    # PAYLOADS_<n> (same schema for every shard)
+public/                 # css, logo, sloth, Figtree, report.js, robots.txt (Workers Static Assets)
+test/                   # Vitest + @cloudflare/vitest-pool-workers (local D1, real runtime)
+scripts/ensure-d1.mjs   # CI: create D1 dbs if missing (weur) and fill database_id
+scripts/sync-secrets.mjs# CI: upload optional secrets, create IP_HASH_SALT once
+.github/workflows/deploy.yml   # test on every push/PR; deploy main when Cloudflare secrets exist
+.github/workflows/moderate.yml # manual takedown / restore of a share code
+```
+
+**Deploy pipeline (`deploy.yml`, on every push to `main`):** `npm ci` → typecheck → tests → *(only if `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets exist)* ensure D1 databases → `d1 migrations apply --remote` (meta + payload shards) → `wrangler deploy --var GIT_SHA:<sha>` (creates the `share.studdly.app` custom domain + certificate) → sync secrets → smoke test `/api/v1/health`.
+
+**GitHub repo secrets:**
+
+| Secret | Required | Purpose |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | yes | "Edit Cloudflare Workers" template + Account D1 Edit + Zone DNS Edit (zone `studdly.app`) |
+| `CLOUDFLARE_ACCOUNT_ID` | yes | target account |
+| `DISCORD_MODERATION_WEBHOOK` | optional | report notifications |
+| `DISCORD_STATS_WEBHOOK` | optional | daily stats + shard-size warnings |
+| `ADMIN_TOKEN` | optional | enables `/api/admin/*` (the `moderate.yml` workflow works without it) |
+
+`IP_HASH_SALT` is generated once by `sync-secrets.mjs` and never leaves Cloudflare.
+
+**Vars to fill later** (`wrangler.jsonc` → `vars`): `ANDROID_CERT_SHA256` (Play App Signing + upload key SHA-256, comma-separated) — until set, `/.well-known/assetlinks.json` returns 404 and Android opens links in the browser.
+
+**Moderation without code:** GitHub → Actions → *Moderate a share* → Run workflow → code + `remove`/`restore`.
+
+Rollback: `wrangler rollback` (instant). Data safety: D1 Time Travel (7 days on free) for point-in-time restore.
+
+**Compatibility date:** keep `compatibility_date` ≤ the newest date supported by the `workerd` bundled with the pinned `@cloudflare/vitest-pool-workers`, or local tests fail to start.
 
 ## 7. Monitoring
 
