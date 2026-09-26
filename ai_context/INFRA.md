@@ -166,7 +166,7 @@ scripts/ensure-workers-subdomain.mjs # CI: register the account workers.dev subd
 
 `IP_HASH_SALT` is generated once by `sync-secrets.mjs` and never leaves Cloudflare.
 
-**Vars to fill later** (`wrangler.jsonc` → `vars`): `ANDROID_CERT_SHA256` (Play App Signing + upload key SHA-256, comma-separated) — until set, `/.well-known/assetlinks.json` returns 404 and Android opens links in the browser.
+**Android App Links:** `wrangler.jsonc` → `ANDROID_CERT_SHA256` holds the Play App Signing and upload key SHA-256 (set 2026-09-26). Debug builds use a different key, so links open the browser there.
 
 **Moderation without code:** GitHub → Actions → *Moderate a share* → Run workflow → code + `remove`/`restore`.
 

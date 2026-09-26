@@ -16,7 +16,7 @@
 
 - [ ] Cloudflare account (free), add `studdly.app`, switch nameservers in OVH, verify studdly.app still works on Netlify.
 - [ ] Apply the zone security settings from `INFRA.md` §5 (Bot Fight Mode off, no challenge rules) before the first share.
-- [ ] Get Android SHA-256 fingerprints (Play App Signing + upload + debug) and Apple Team ID.
+- [x] Get Android SHA-256 fingerprints (Play App Signing + upload) and Apple Team ID.
 - [x] Fix the broken privacy-policy URL in the app → `https://studdly.netlify.app/privacy_policy` (done in the app repo 2026-09-26).
 - [ ] Same URL in Play Console + App Store Connect; add a "Sharing" section to the policy.
 
@@ -45,7 +45,7 @@
 - [x] Deep link handling + import flow + pending import through onboarding.
 - [x] Localized strings (all 8 languages), analytics events, UI preview states.
 - [x] Android intent filter + iOS associated domains + custom scheme.
-- [ ] Fill `ANDROID_CERT_SHA256` (Play App Signing + upload key) so Android verifies App Links.
+- [x] Fill `ANDROID_CERT_SHA256` (Play App Signing + upload key) so Android verifies App Links.
 - [ ] Release a new app version (internal testing first) and test on real devices: share → sheet → badge; open link on a second phone with and without the app.
 
 ## Phase 3 — polish / growth
