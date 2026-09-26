@@ -1,0 +1,18 @@
+---
+description: studdly-share context — read ai_context docs before changing the API, landing page, storage or infra
+alwaysApply: true
+---
+
+# studdly-share context
+
+Before changing code:
+
+1. Read `ai_context/SHARE_CONTEXT.md` (flows, decisions, non-negotiables)
+2. API / payload / D1 changes: `ai_context/API_SPEC.md` — v1 contract is used by shipped app versions; add, never mutate
+3. Input handling, HTML, rate limits, logging: `ai_context/SECURITY.md`
+4. New dependency, binding, or CPU-heavy work: `ai_context/INFRA.md` (Cloudflare free plan, 10 ms CPU)
+5. Landing page / well-known files: `ai_context/DEEP_LINKS.md`
+
+Client counterpart: `keewinek/studdly` → `ai_context/TOPIC_SHARING.md`.
+
+Share links are permanent. No personal data. No server-side AI inference.
