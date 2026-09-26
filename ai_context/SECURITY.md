@@ -17,6 +17,8 @@ Studdly's audience includes **children** (design bar: an 8-year-old). A public "
 | Personal data inside content (a kid scans notes with names) | Payload never includes user name / ids; landing page has "Report → contains personal data"; owner can delete (API now, UI later). | "Stop sharing" button in the app. |
 | Admin token leak | `ADMIN_TOKEN` only as Worker secret; admin routes also rate-limited; rotate on any suspicion. | Cloudflare Access in front of `/api/admin/*`. |
 
+**Never use Cloudflare challenges** (Bot Fight Mode, Under Attack Mode, Managed/JS/Interactive Challenge rules) on `share.studdly.app`: the app and link-preview bots cannot pass them. Use Worker rate limits (`429`) and Block rules only. Settings list: `INFRA.md` §5.
+
 ## Privacy (GDPR / kids)
 
 - **No accounts, no cookies, no analytics scripts** on the landing page.

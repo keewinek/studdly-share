@@ -57,10 +57,10 @@ Heaviest request is `POST` (parse ≤ 1 MiB JSON, validate, gzip, SHA-256). Rule
 - `crypto.subtle.digest` and `CompressionStream` are native.
 - Measure p99 CPU in Workers Observability after launch; if `POST` for "exact" topics trends > 8 ms, lower the size caps or move gzip to the client (`Content-Encoding: gzip` upload) before paying.
 
-## 5. DNS / custom domain — **action needed**
+## 5. DNS / custom domain — ✅ decided: Option A (move DNS to Cloudflare)
 
 Current state (checked 2026-09-26): `studdly.app` nameservers are **Netlify DNS** (`dns1..4.p09.nsone.net`). `share.studdly.app` does not exist yet.
-Registrar: **OVH** (RDAP). ⚠️ Registration **expires 2026-10-31** — make sure auto-renew is on; if the domain lapses, every share link dies.
+Registrar: **OVH** (RDAP). Registration renews on 2026-10-31 — auto-renew is on (confirmed by the owner). If the domain ever lapses, every share link dies.
 
 ### Why a plain DNS record is not enough
 
@@ -75,7 +75,7 @@ The obvious idea — in Netlify DNS add `share CNAME studdly-share.<acct>.worker
 
 Sources: [subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/), [partial setup](https://developers.cloudflare.com/dns/zone-setups/partial-setup/), [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), [Worker as fallback origin](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/).
 
-### Option A (recommended) — move `studdly.app` DNS to Cloudflare (free)
+### Option A (✅ chosen) — move `studdly.app` DNS to Cloudflare (free)
 
 1. Add `studdly.app` to Cloudflare (Free). It imports existing records; compare with Netlify DNS and fix anything missing (apex → Netlify load balancer, `www` → `<site>.netlify.app`, MX/TXT if any).
 2. Set the Netlify records to **DNS only (grey cloud)** so Netlify keeps serving the site and renewing its certificate.
@@ -100,6 +100,24 @@ Pros: `studdly.app` DNS stays untouched. Cons: extra domain to pay for and renew
 - Proxying through Netlify (`_redirects` 200 rewrite to workers.dev) — every share request would consume Netlify credits, and running out pauses **all** Netlify projects (studdly.app + live banner).
 
 ⚠️ Links are forever: pick the final host **before** the first production share.
+
+### Cloudflare zone security settings — no "Verify you are human" pages
+
+The challenge page ("Just a moment… / Verify you are human") only appears on **proxied** (orange-cloud) traffic, and only when a security feature decides to challenge. Two consequences:
+
+- **`studdly.app` / `www` (Netlify, DNS-only / grey cloud):** Cloudflare only answers DNS; traffic goes straight to Netlify. **No challenge is ever possible** there.
+- **`share.studdly.app` (Worker, always proxied):** a challenge here would be a **bug**, not just an annoyance — the Flutter app's HTTP client can't solve it (API calls fail) and link-preview bots (Messenger, WhatsApp, iMessage, Discord) would get the challenge instead of the Open Graph tags. Required settings for the zone:
+
+| Setting (dashboard) | Value | Why |
+|---|---|---|
+| Security → Bots → **Bot Fight Mode** | **Off** | On the free plan it can't be scoped or skipped by rules; it challenges non-browser clients such as the app and preview crawlers. |
+| Security → Bots → **Block AI bots** / AI Labyrinth | Off | Same reason; nothing to protect from crawlers (pages are `noindex`). |
+| **Under Attack Mode** | Off (never as a permanent setting) | Challenges every visitor. |
+| Security level / challenge passage | Lowest available ("Essentially off") for `share.studdly.app` via a Configuration Rule | Avoid challenging school NATs with shared IPs. |
+| **Browser Integrity Check** | Off for `share.studdly.app` (Configuration Rule) | Can block non-browser user agents. |
+| WAF custom rules | Only **Block** or **rate limit (429)** actions — never *Managed Challenge*, *JS Challenge* or *Interactive Challenge* | The app maps `429` to friendly copy; it cannot handle a challenge page. |
+
+Abuse protection comes from the Worker's own rate limits + validation (`SECURITY.md`), not from challenges. After the migration, verify with `curl -A "Dart/3.5 (dart:io)" https://share.studdly.app/api/v1/health` and `curl -A "facebookexternalhit/1.1" https://share.studdly.app/<code>` — both must return the real response, not HTML with a challenge.
 
 ## 6. Environments & deploy
 

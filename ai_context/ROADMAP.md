@@ -4,7 +4,7 @@
 
 | # | Question | Recommendation |
 |---|----------|----------------|
-| Q1 | How to attach `share.studdly.app` to Cloudflare? (today `studdly.app` DNS is on Netlify) | A plain CNAME to `workers.dev` does **not** work. **A (recommended):** move nameservers to Cloudflare free, keep Netlify records DNS-only. **B:** keep Netlify DNS and add only records via Cloudflare for SaaS — needs a second domain on Cloudflare. See `INFRA.md` §5. **Blocks production launch.** |
+| Q1 | How to attach `share.studdly.app` to Cloudflare? | ✅ **Decided: move `studdly.app` nameservers (OVH) to Cloudflare free**, Netlify records DNS-only, no challenge features on the share host. See `INFRA.md` §5. |
 | Q2 | Code length | ✅ **Decided: 5 chars.** Apps and well-known files accept 5–6 so new links can grow later without an app update. |
 | Q3 | Re-tap check fails because of no internet / server down | ✅ **Decided: open the share sheet with the remembered link.** Only `404`/`410` triggers re-upload. |
 | Q4 | Can a recipient without an AI key use imported topics? | ✅ **Decided: no.** Recipient finishes normal onboarding (incl. key) first; the link is kept as a pending import and the topic is created right after onboarding. |
@@ -14,7 +14,8 @@
 
 ## Phase 0 — prerequisites (owner)
 
-- [ ] Cloudflare account (free) + decide Q1 (A or B), set up DNS, verify studdly.app still works on Netlify.
+- [ ] Cloudflare account (free), add `studdly.app`, switch nameservers in OVH, verify studdly.app still works on Netlify.
+- [ ] Apply the zone security settings from `INFRA.md` §5 (Bot Fight Mode off, no challenge rules) before the first share.
 - [ ] Get Android SHA-256 fingerprints (Play App Signing + upload + debug) and Apple Team ID.
 - [x] Fix the broken privacy-policy URL in the app → `https://studdly.netlify.app/privacy_policy` (done in the app repo 2026-09-26).
 - [ ] Same URL in Play Console + App Store Connect; add a "Sharing" section to the policy.
