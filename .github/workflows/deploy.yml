@@ -50,6 +50,9 @@ jobs:
       - name: Ensure D1 databases
         if: steps.check.outputs.configured == 'true'
         run: node scripts/ensure-d1.mjs
+      - name: Ensure workers.dev subdomain (needed for cron triggers)
+        if: steps.check.outputs.configured == 'true'
+        run: node scripts/ensure-workers-subdomain.mjs
       - name: Apply migrations
         if: steps.check.outputs.configured == 'true'
         run: |
