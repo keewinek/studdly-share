@@ -15,7 +15,8 @@ The app **maps `error` → localized copy**; `message` is never shown to users.
 
 ## Share code
 
-- Regex: `^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{6}$`
+- Generated codes: **5 chars** from `23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz` (49 symbols → 49⁵ ≈ 282M).
+- Accepted codes (server routing, app, Android/iOS link config): `^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,6}$` — 6 is reserved so new links can grow later without an app update.
 - Generated with `crypto.getRandomValues` + rejection sampling (no modulo bias).
 - Any path segment not matching the regex → `404 not_found` without touching storage (cheap, and blocks garbage probing).
 
@@ -53,7 +54,7 @@ Algorithm (Worker):
    - found `active` → `200` with that code.
    - found `pending` → continue from step 5 with that code (previous attempt died mid-way).
 3. Canonicalize payload (re-serialize the *validated* object, so unknown whitespace/fields never reach storage), gzip it (`CompressionStream`), compute `content_sha256`.
-4. Generate code → `INSERT INTO shares (..., status='pending')`. On PK collision, regenerate (max 5 tries, then `503`). The row **reserves** the code before any R2 write, so a collision can never overwrite someone else's payload.
+4. Generate code → `INSERT INTO shares (..., status='pending')`. On PK collision, regenerate (max 5 tries, then `503`; at 1M stored shares a single collision is ~0.35 %, five in a row is practically impossible). The row **reserves** the code before any R2 write, so a collision can never overwrite someone else's payload.
 5. `R2.put("v1/<code>.json.gz", gz, { httpMetadata: { contentType: "application/json", contentEncoding: "gzip" } })`.
 6. `UPDATE shares SET status='active' WHERE code=?` → `201`.
 

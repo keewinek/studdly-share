@@ -60,12 +60,44 @@ Heaviest request is `POST` (parse ≤ 1 MiB JSON, validate, gzip, SHA-256). Rule
 ## 5. DNS / custom domain — **action needed**
 
 Current state (checked 2026-09-26): `studdly.app` nameservers are **Netlify DNS** (`dns1..4.p09.nsone.net`). `share.studdly.app` does not exist yet.
+Registrar: **OVH** (RDAP). ⚠️ Registration **expires 2026-10-31** — make sure auto-renew is on; if the domain lapses, every share link dies.
 
-Cloudflare Workers custom domains require the zone to be on Cloudflare (subdomain delegation / partial CNAME setups are Enterprise/Business features). Options:
+### Why a plain DNS record is not enough
 
-1. **Recommended: move `studdly.app` DNS to Cloudflare (free plan).** Recreate the Netlify records (apex `A 75.2.60.5` or Netlify's current load-balancer IP, `www CNAME <site>.netlify.app`, plus any MX/TXT) as **DNS-only (grey cloud)** so Netlify keeps serving the site and its certificate. Then add `share.studdly.app` as a Worker Custom Domain. Bonus: free WAF rate-limiting rule + bot protection for the share host. Lower the TTLs a day before switching; `.app` is HSTS-preloaded, so verify HTTPS on every hostname right after the switch.
-2. Separate domain on Cloudflare (e.g. `studdly.link`) — no migration, but a less trustworthy-looking link for kids/parents.
-3. `studdly-share.<account>.workers.dev` — zero setup; fine for **staging**, not for production links (ugly, sometimes filtered by school networks, can't change later without breaking links).
+The obvious idea — in Netlify DNS add `share CNAME studdly-share.<acct>.workers.dev` — **does not work**. Cloudflare's edge routes requests by hostname and only serves Workers for hostnames that belong to a zone on a Cloudflare account; a foreign hostname CNAME'd to `workers.dev` gets a Cloudflare error, not the Worker, and no certificate for `share.studdly.app` is issued. The Cloudflare features that attach a hostname whose parent zone lives elsewhere are:
+
+| Cloudflare feature | What it allows | Plan |
+|---|---|---|
+| Full setup (move nameservers) | Worker Custom Domain on any hostname of the zone | **Free** |
+| Partial / CNAME setup | Keep NS elsewhere, proxy selected records | Business / Enterprise only |
+| Subdomain setup (delegate `share.` with NS records) | Only `share.studdly.app` becomes a Cloudflare zone | Enterprise only |
+| **Cloudflare for SaaS** (custom hostnames) | Any external hostname `CNAME`s to a zone you own on Cloudflare; a Worker on that zone serves it | **Free plan: 100 hostnames included** |
+
+Sources: [subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/), [partial setup](https://developers.cloudflare.com/dns/zone-setups/partial-setup/), [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), [Worker as fallback origin](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/).
+
+### Option A (recommended) — move `studdly.app` DNS to Cloudflare (free)
+
+1. Add `studdly.app` to Cloudflare (Free). It imports existing records; compare with Netlify DNS and fix anything missing (apex → Netlify load balancer, `www` → `<site>.netlify.app`, MX/TXT if any).
+2. Set the Netlify records to **DNS only (grey cloud)** so Netlify keeps serving the site and renewing its certificate.
+3. Change nameservers at the **registrar (OVH panel → Domains → studdly.app → DNS servers)** to the two Cloudflare NS (and remove the domain from Netlify DNS afterwards — the site itself stays on Netlify as an external-DNS domain).
+4. Add `share.studdly.app` as the Worker's Custom Domain (Cloudflare creates the record + certificate).
+
+Pros: simplest long-term setup, one extra record per future service, free WAF rate-limiting rule and bot protection. Cons: a one-time migration (~30 min + propagation). Lower TTLs a day earlier; `.app` is HSTS-preloaded, so check HTTPS on every hostname right after.
+
+### Option B — keep Netlify DNS, add only records (Cloudflare for SaaS)
+
+Possible, but needs a **second domain** whose DNS is on Cloudflare (any cheap domain, ~$10/year, e.g. `studdly-edge.com`):
+
+1. Put the helper domain on Cloudflare (Free), create a proxied record `edge.studdly-edge.com` as the **fallback origin**, and a Worker route `*/*` on that zone → the share Worker.
+2. Enable Cloudflare for SaaS on that zone (100 custom hostnames free; Cloudflare may ask for a payment method on file to enable it — verify in the dashboard) and add custom hostname `share.studdly.app`.
+3. In **Netlify DNS** add only records: `share CNAME edge.studdly-edge.com` plus the TXT record(s) Cloudflare shows for hostname/certificate validation.
+
+Pros: `studdly.app` DNS stays untouched. Cons: extra domain to pay for and renew forever (if it lapses, **every share link dies**), more moving parts, WAF rules apply per SaaS zone.
+
+### Not recommended
+
+- `studdly-share.<acct>.workers.dev` as the public link host — fine for **staging** only (ugly, sometimes filtered by school networks, can't move later without breaking links).
+- Proxying through Netlify (`_redirects` 200 rewrite to workers.dev) — every share request would consume Netlify credits, and running out pauses **all** Netlify projects (studdly.app + live banner).
 
 ⚠️ Links are forever: pick the final host **before** the first production share.
 
@@ -106,7 +138,8 @@ Cloudflare Workers custom domains require the zone to be on Cloudflare (subdomai
     "ratelimits": [
       { "name": "RL_CREATE", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
       { "name": "RL_READ",   "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
-      { "name": "RL_REPORT", "namespace_id": "1003", "simple": { "limit": 5, "period": 60 } }
+      { "name": "RL_REPORT", "namespace_id": "1003", "simple": { "limit": 5, "period": 60 } },
+      { "name": "RL_MISS",   "namespace_id": "1004", "simple": { "limit": 20, "period": 60 } }   // 404 lookups (anti-enumeration)
     ],
     "triggers": { "crons": ["0 3 * * *"] },
     "observability": { "enabled": true },

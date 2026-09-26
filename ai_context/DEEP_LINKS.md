@@ -37,11 +37,12 @@ App identifiers (from the app repo): Android `applicationId` **`com.studdly.app`
   <action android:name="android.intent.action.VIEW" />
   <category android:name="android.intent.category.DEFAULT" />
   <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="share.studdly.app" android:pathPattern="/....." />
   <data android:scheme="https" android:host="share.studdly.app" android:pathPattern="/......" />
 </intent-filter>
 ```
 
-`pathPattern="/......"` = slash + exactly six characters (share codes). The app still validates the code with the same regex as the server and falls back to opening the URL in the browser if it doesn't match.
+`pathPattern="/....."` / `"/......"` = slash + exactly five / six characters (today's codes are 5; 6 is reserved for later). The app still validates the code with the same regex as the server and falls back to opening the URL in the browser if it doesn't match.
 
 Worker serves `/.well-known/assetlinks.json`:
 
@@ -75,7 +76,8 @@ Verify with `adb shell pm get-app-links com.studdly.app` and Google's Statement 
       "components": [
         { "/": "/api/*", "exclude": true },
         { "/": "/.well-known/*", "exclude": true },
-        { "/": "/??????", "comment": "share code" }
+        { "/": "/?????", "comment": "share code (5 chars, current)" },
+        { "/": "/??????", "comment": "share code (6 chars, reserved)" }
       ]
     }]
   }
@@ -88,7 +90,7 @@ Verify with `adb shell pm get-app-links com.studdly.app` and Google's Statement 
 ## 5. Flutter side (summary; full spec in the app repo `ai_context/TOPIC_SHARING.md`)
 
 - Package `app_links` for initial + streamed links (`https://share.studdly.app/<code>` and `studdly://share/<code>`). If Flutter's built-in deep linking is on by default in the Flutter version used, disable it (`FlutterDeepLinkingEnabled = NO` in Info.plist, `flutter_deeplinking_enabled=false` meta-data on Android) so links aren't pushed as Navigator routes — check the `app_links` README for the current guidance.
-- If the user hasn't finished onboarding yet, the code is stored as a *pending import* and applied right after onboarding.
+- If the user hasn't finished onboarding yet (first launch **or** no AI key), the code is stored as a *pending import* and the "Add this topic?" confirmation appears right after onboarding. There is no key-less mode (owner's decision).
 
 ## 6. Android "in-app browser" button
 

@@ -1,22 +1,23 @@
 # ROADMAP.md — phases, checklist, open decisions
 
-## Open decisions (need the owner's call)
+## Decisions (✅ = decided by the owner)
 
 | # | Question | Recommendation |
 |---|----------|----------------|
-| Q1 | Where does DNS for `studdly.app` live? (today: Netlify DNS) | Move the zone to Cloudflare free, keep Netlify records DNS-only. See `INFRA.md` §5. **Blocks production launch.** |
-| Q2 | Code length: 5 chars (brief example `e4Rf8`) or 6? | **6** (no-vowel alphabet, 49⁶ ≈ 13.8B). 5 would be 282M — fine today, weaker vs. enumeration later. Decide before the first real share; changing length later only affects new links. |
-| Q3 | Re-tap check fails because of **no internet / server down** — what now? | Open the share sheet with the **cached link anyway** (it almost certainly still works; the friend opens it later). Only a definite `404`/`410` triggers re-upload. Alternative: show "No internet" toast and do nothing. |
-| Q4 | Can a recipient **without an AI key** use imported topics? Today onboarding forces a key. | Big growth lever: let onboarding finish without a key when a pending import exists, show the imported topic, ask for a key only when they create their own topic. Needs an `APP_CONTEXT.md` change in the app — product call. |
+| Q1 | How to attach `share.studdly.app` to Cloudflare? (today `studdly.app` DNS is on Netlify) | A plain CNAME to `workers.dev` does **not** work. **A (recommended):** move nameservers to Cloudflare free, keep Netlify records DNS-only. **B:** keep Netlify DNS and add only records via Cloudflare for SaaS — needs a second domain on Cloudflare. See `INFRA.md` §5. **Blocks production launch.** |
+| Q2 | Code length | ✅ **Decided: 5 chars.** Apps and well-known files accept 5–6 so new links can grow later without an app update. |
+| Q3 | Re-tap check fails because of no internet / server down | ✅ **Decided: open the share sheet with the remembered link.** Only `404`/`410` triggers re-upload. |
+| Q4 | Can a recipient without an AI key use imported topics? | ✅ **Decided: no.** Recipient finishes normal onboarding (incl. key) first; the link is kept as a pending import and the topic is created right after onboarding. |
 | Q5 | When the sender deletes the topic locally, delete the share on the server? | **No** in v1 (friends may still be importing). Add explicit "Stop sharing" later. |
 | Q6 | Share only fully-ready topics, or also partially analysed ones? | **Only `ready`** (icon hidden until then) — simplest for kids, and payload stays immutable. |
 | Q7 | Landing page languages | Same as the app (en, pl, es, de, fr, uk, hi, id); PL + EN required for launch. |
 
 ## Phase 0 — prerequisites (owner)
 
-- [ ] Cloudflare account (free) + decide Q1, migrate DNS, verify studdly.app still works on Netlify.
+- [ ] Cloudflare account (free) + decide Q1 (A or B), set up DNS, verify studdly.app still works on Netlify.
 - [ ] Get Android SHA-256 fingerprints (Play App Signing + upload + debug) and Apple Team ID.
-- [ ] Fix the broken privacy-policy URL (see `SECURITY.md`) and add a "Sharing" section.
+- [x] Fix the broken privacy-policy URL in the app → `https://studdly.netlify.app/privacy_policy` (done in the app repo 2026-09-26).
+- [ ] Same URL in Play Console + App Store Connect; add a "Sharing" section to the policy.
 
 ## Phase 1 — backend MVP (this repo)
 
