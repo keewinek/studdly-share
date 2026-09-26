@@ -4,7 +4,7 @@ Share-link backend for the Studdly Flutter app (`keewinek/studdly`). One Cloudfl
 
 ## Read before changing anything
 
-1. `ai_context/SHARE_CONTEXT.md` — flows, decisions D1–D11, non-negotiables
+1. `ai_context/SHARE_CONTEXT.md` — flows, decisions D1–D13, non-negotiables
 2. `ai_context/API_SPEC.md` — the contract with the app; **breaking it breaks shipped app versions**
 3. `ai_context/SECURITY.md` when touching input handling, HTML, rate limits, storage, or logging
 4. `ai_context/INFRA.md` before adding a dependency, binding, or anything CPU-heavy (free plan = 10 ms CPU/request)
