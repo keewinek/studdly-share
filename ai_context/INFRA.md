@@ -146,11 +146,12 @@ public/                 # css, logo, sloth, Figtree, report.js, robots.txt (Work
 test/                   # Vitest + @cloudflare/vitest-pool-workers (local D1, real runtime)
 scripts/ensure-d1.mjs   # CI: create D1 dbs if missing (weur) and fill database_id
 scripts/sync-secrets.mjs# CI: upload optional secrets, create IP_HASH_SALT once
+scripts/ensure-workers-subdomain.mjs # CI: register the account workers.dev subdomain if missing
 .github/workflows/deploy.yml   # test on every push/PR; deploy main when Cloudflare secrets exist
 .github/workflows/moderate.yml # manual takedown / restore of a share code
 ```
 
-**Deploy pipeline (`deploy.yml`, on every push to `main`):** `npm ci` → typecheck → tests → *(only if the `CLOUDFLARE_API_TOKEN` repo secret exists)* ensure D1 databases → `d1 migrations apply --remote` (meta + payload shards) → `wrangler deploy --var GIT_SHA:<sha>` (creates the `share.studdly.app` custom domain + certificate) → sync secrets → smoke test `/api/v1/health`.
+**Deploy pipeline (`deploy.yml`, on every push to `main`):** `npm ci` → typecheck → tests → *(only if the `CLOUDFLARE_API_TOKEN` repo secret exists)* ensure D1 databases → ensure an account workers.dev subdomain (Cloudflare requires one for cron triggers, error 10063, even though this Worker has `workers_dev` off) → `d1 migrations apply --remote` (meta + payload shards) → `wrangler deploy --var GIT_SHA:<sha>` (creates the `share.studdly.app` custom domain + certificate) → sync secrets → smoke test `/api/v1/health`.
 
 **Cloudflare account:** `keewinek@gmail.com` (`account_id` `3a683c190c3642e01dc1113896acd5f4`, set in `wrangler.jsonc`). D1 databases `studdly-share-meta` (`33712324-…`) and `studdly-share-payloads-1` (`c8c99399-…`) were created in WEUR on 2026-09-26; migrations are applied by CI.
 

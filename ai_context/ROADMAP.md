@@ -34,7 +34,7 @@
 - [x] Tests (29): validation, idempotent retry, pending recovery, collisions, status transitions, report threshold, XSS escaping, well-known files, cron.
 - [x] CI + deploy workflow (deploys once Cloudflare secrets are set).
 - [x] D1 databases created in the owner's account (WEUR).
-- [ ] First production deploy (needs the owner's `CLOUDFLARE_API_TOKEN` GitHub secret and the `studdly.app` zone active on Cloudflare).
+- [x] First production deploy — `share.studdly.app` live 2026-09-26; production smoke test passed (create, idempotent retry, status, payload, landing/OG, owner delete, no bot challenge).
 - [ ] Cloudflare WAF rate-limiting rule on `/api/v1/shares` (dashboard, optional second layer).
 - [ ] Landing copy for es, de, fr, uk, hi, id (fall back to English today).
 - [ ] Measure p99 CPU of `POST` for large "exact" topics in Workers Observability after launch.

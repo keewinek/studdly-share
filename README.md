@@ -4,7 +4,7 @@ Share-link service for [Studdly](https://studdly.app) learning paths: `https://s
 
 A Studdly user who finished AI analysis of a topic taps **Share** → the app uploads the generated learning path (sub-topics + quizzes, never the scanned pages) → gets a short link → friends open it and import the same path into their app, or see a preview page with store links if they don't have Studdly yet.
 
-**Status:** backend implemented and tested; deploys to Cloudflare from GitHub Actions once the Cloudflare secrets are set (see `ai_context/INFRA.md` §6).
+**Status:** live at `https://share.studdly.app`; every push to `main` is tested and deployed by GitHub Actions (see `ai_context/INFRA.md` §6).
 
 ## Stack
 
