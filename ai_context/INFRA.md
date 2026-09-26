@@ -123,7 +123,7 @@ Abuse protection comes from the Worker's own rate limits + validation (`SECURITY
 
 ## 6. Environments & deploy (implemented)
 
-One environment: **production** (`share.studdly.app`, plus `studdly-share.<account>.workers.dev`). Local development uses `wrangler dev` with local D1; there is no staging yet (add one only when the app needs it).
+One environment: **production** (`share.studdly.app` only; `workers_dev` and preview URLs are off — the account has no workers.dev subdomain). Local development uses `wrangler dev` with local D1; there is no staging yet (add one only when the app needs it).
 
 Repo layout:
 ```

@@ -4,7 +4,8 @@
   "account_id": "3a683c190c3642e01dc1113896acd5f4",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-15",
-  "workers_dev": true,
+  "workers_dev": false,
+  "preview_urls": false,
   "routes": [{ "pattern": "share.studdly.app", "custom_domain": true }],
   "assets": { "directory": "public", "binding": "ASSETS" },
 
