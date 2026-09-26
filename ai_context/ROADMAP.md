@@ -39,13 +39,14 @@
 - [ ] Landing copy for es, de, fr, uk, hi, id (fall back to English today).
 - [ ] Measure p99 CPU of `POST` for large "exact" topics in Workers Observability after launch.
 
-## Phase 2 — app integration (repo `keewinek/studdly`, spec `ai_context/TOPIC_SHARING.md`)
+## Phase 2 — app integration (repo `keewinek/studdly`, spec `ai_context/TOPIC_SHARING.md`) — ✅ implemented 2026-09-26
 
-- [ ] Share button state machine on TopicDetailPage, `TopicShareService`, local share records.
-- [ ] Deep link handling + import flow + pending import through onboarding.
-- [ ] Localized strings (all 8 languages), analytics events, UI preview states.
-- [ ] Android intent filter + iOS associated domains + custom scheme.
-- [ ] Release to internal testing against staging → production.
+- [x] Share button state machine on TopicDetailPage, `TopicShareService`, local share records.
+- [x] Deep link handling + import flow + pending import through onboarding.
+- [x] Localized strings (all 8 languages), analytics events, UI preview states.
+- [x] Android intent filter + iOS associated domains + custom scheme.
+- [ ] Fill `ANDROID_CERT_SHA256` (Play App Signing + upload key) so Android verifies App Links.
+- [ ] Release a new app version (internal testing first) and test on real devices: share → sheet → badge; open link on a second phone with and without the app.
 
 ## Phase 3 — polish / growth
 
