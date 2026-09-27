@@ -12,6 +12,12 @@
   --text: #f2f0f0;
   --muted: #c8c8c8;
   --ocean: #4d67aa;
+  /* Topic card tokens mirror the app (app_theme.dart): darkGray surface,
+     brand-gray stroke, hard 5px shadow, progress fill/track. */
+  --card: #0d0e0e;
+  --shadow: #1a1a1a;
+  --progress-track: #161616;
+  --progress-fill: #246b42;
 }
 
 * { box-sizing: border-box; }
@@ -46,7 +52,60 @@ main {
 h1 { font-size: 26px; font-weight: 700; margin: 8px 0; line-height: 1.25; overflow-wrap: anywhere; }
 p { line-height: 1.5; }
 .muted { color: var(--muted); }
-.kicker { font-size: 18px; margin: 8px 0 16px; }
+.kicker {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 8px 0 20px;
+  overflow-wrap: anywhere;
+}
+
+/* --- Topic card: the app's home-screen topic row --- */
+.topic-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 74px;
+  padding: 16px;
+  text-align: left;
+  background: var(--card);
+  border: 1.5px solid var(--stroke);
+  border-radius: 14px;
+  box-shadow: 5px 5px 0 0 var(--shadow);
+}
+.topic-body { flex: 1; min-width: 0; }
+.topic-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.chevron { flex: none; width: 17px; height: 17px; color: var(--text); }
+
+.progress {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 18px;
+  margin-top: 7px;
+  padding: 0 8px;
+  background: var(--progress-track);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.progress-label { position: relative; font-size: 12px; font-weight: 500; line-height: 1; }
+/* Segment ticks, drawn as dividers between equal cells (app parity). */
+.ticks { position: absolute; inset: 0; display: flex; }
+.ticks i { flex: 1; border-right: 1px solid var(--card); }
+.ticks i:last-child { border-right: 0; }
+
+.summary { margin: 12px 0 0; font-size: 14px; }
 
 .card {
   text-align: left;
@@ -57,7 +116,8 @@ p { line-height: 1.5; }
 }
 .card h1 { margin-top: 0; }
 
-.lessons { margin: 16px 0 0; padding-left: 22px; }
+.inside { text-align: left; margin: 24px 0 0; }
+.lessons { margin: 0; padding-left: 22px; }
 .lessons li { padding: 4px 0; overflow-wrap: anywhere; }
 .more { margin: 8px 0 0; }
 
@@ -79,8 +139,23 @@ p { line-height: 1.5; }
   text-decoration: none;
   color: #ffffff;
 }
-.btn.primary { background: var(--ocean); }
+.btn.primary { background: var(--ocean); gap: 8px; }
 .btn.secondary { border: 1px solid var(--stroke); color: var(--text); }
+.btn-mark { width: 26px; height: 26px; border-radius: 6px; }
+.btn-logotype { width: 79px; height: auto; }
+
+/* Store buttons: brand mark + two-line label. */
+.btn.store {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 18px;
+  border: 1px solid var(--stroke);
+  color: var(--text);
+}
+.store-logo { flex: none; width: 22px; height: 22px; }
+.store-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.store-top { font-size: 11px; font-weight: 500; color: var(--muted); }
+.store-name { font-size: 17px; font-weight: 600; }
 .btn:focus-visible, .reason:focus-visible, summary:focus-visible { outline: 2px solid var(--ocean); outline-offset: 2px; }
 
 .hint { font-size: 14px; }

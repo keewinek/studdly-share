@@ -7,12 +7,18 @@
 export interface Strings {
   lang: string;
   sharedWithYou: string;
+  sharedWithYouBy: (name: string) => string;
   lessons: (n: number) => string;
   questions: (n: number) => string;
   andMore: (n: number) => string;
   openInApp: string;
+  /** "Open in" — the Studdly logotype image follows it inside the button. */
+  openIn: string;
   googlePlay: string;
   appStore: string;
+  /** Small first line on the store badges; the store name stays untranslated. */
+  getItOn: string;
+  downloadOnThe: string;
   installHint: string;
   learnInStuddly: string;
   validUntil: (date: string) => string;
@@ -41,12 +47,16 @@ function plPlural(n: number, one: string, few: string, many: string): string {
 const en: Strings = {
   lang: 'en',
   sharedWithYou: 'Someone shared a topic with you!',
+  sharedWithYouBy: (name) => `${name} shared a topic with you!`,
   lessons: (n) => `${n} ${n === 1 ? 'lesson' : 'lessons'}`,
   questions: (n) => `${n} quiz ${n === 1 ? 'question' : 'questions'}`,
   andMore: (n) => `and ${n} more`,
   openInApp: 'Open in Studdly',
+  openIn: 'Open in',
   googlePlay: 'Get it on Google Play',
   appStore: 'Download on the App Store',
+  getItOn: 'Get it on',
+  downloadOnThe: 'Download on the',
   installHint: "Don't have Studdly yet? Install it, then tap the link again.",
   learnInStuddly: 'Learn it in Studdly',
   validUntil: (date) => `Link works until ${date}`,
@@ -73,12 +83,16 @@ const en: Strings = {
 const pl: Strings = {
   lang: 'pl',
   sharedWithYou: 'Ktoś udostępnił Ci temat!',
+  sharedWithYouBy: (name) => `${name} udostępnił Ci temat!`,
   lessons: (n) => `${n} ${plPlural(n, 'lekcja', 'lekcje', 'lekcji')}`,
   questions: (n) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')} w quizach`,
   andMore: (n) => `i ${n} więcej`,
   openInApp: 'Otwórz w Studdly',
+  openIn: 'Otwórz w',
   googlePlay: 'Pobierz z Google Play',
   appStore: 'Pobierz z App Store',
+  getItOn: 'Pobierz z',
+  downloadOnThe: 'Pobierz z',
   installHint: 'Nie masz jeszcze Studdly? Zainstaluj aplikację i kliknij link jeszcze raz.',
   learnInStuddly: 'Ucz się w Studdly',
   validUntil: (date) => `Link działa do ${date}`,

@@ -10,6 +10,45 @@ import { count, countShare } from '../lib/metrics';
 
 const MAX_LISTED_LESSONS = 12;
 
+/**
+ * Inline monochrome store/chevron marks. They use SVG presentation attributes
+ * (not inline CSS), so they pass the page's `style-src 'self'` CSP.
+ * These are Studdly-styled marks, not Apple's/Google's official badge artwork.
+ */
+const PLAY_MARK =
+  '<svg class="store-logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087zm12.207 10.065 3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179zm0 2.067-11 10.933c.298.036.612-.016.906-.183l13.324-7.54zm8.474.242-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594z"/></svg>';
+const APPLE_MARK =
+  '<svg class="store-logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
+const CHEVRON_MARK =
+  '<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M9 4l8 8-8 8"/></svg>';
+
+/** Segment ticks match the app: at most 16, drawn as dividers between cells. */
+const MAX_TICK_SEGMENTS = 16;
+
+/**
+ * The topic card from the app's home screen: title, progress bar at 0 (the
+ * recipient has not started it yet) and a chevron. Geometry and colors mirror
+ * `home_page.dart` / `topic_progress_bar.dart` in keewinek/studdly.
+ */
+function topicCard(title: string, lessonCount: number, t: Strings): string {
+  const ticks =
+    lessonCount > 1 && lessonCount <= MAX_TICK_SEGMENTS
+      ? `<span class="ticks">${'<i></i>'.repeat(lessonCount)}</span>`
+      : '';
+  return `<section class="topic-card">
+<span class="topic-body">
+<span class="topic-title">${escapeHtml(title)}</span>
+<span class="progress" role="img" aria-label="${escapeHtml(t.lessons(lessonCount))}">${ticks}<span class="progress-label">0/${lessonCount}</span><span class="progress-label right">0%</span></span>
+</span>
+${CHEVRON_MARK}
+</section>`;
+}
+
+function storeButton(href: string, mark: string, top: string, name: string, label: string): string {
+  return `<a class="btn store" href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}">${mark}<span class="store-copy"><span class="store-top">${escapeHtml(top)}</span><span class="store-name">${escapeHtml(name)}</span></span></a>`;
+}
+
+
 export const landing = new Hono<AppContext>();
 
 const PAGE_HEADERS = {
@@ -46,8 +85,8 @@ function openInAppUrl(env: Env, platform: Platform, code: string): string | null
 }
 
 function storeButtons(env: Env, t: Strings, platform: Platform, code?: string): string {
-  const play = `<a class="btn secondary" href="${escapeHtml(playUrl(env, code))}">${escapeHtml(t.googlePlay)}</a>`;
-  const apple = `<a class="btn secondary" href="${escapeHtml(env.APP_STORE_URL)}">${escapeHtml(t.appStore)}</a>`;
+  const play = storeButton(playUrl(env, code), PLAY_MARK, t.getItOn, 'Google Play', t.googlePlay);
+  const apple = storeButton(env.APP_STORE_URL, APPLE_MARK, t.downloadOnThe, 'App Store', t.appStore);
   if (platform === 'android') return play;
   if (platform === 'ios') return apple;
   return play + apple;
@@ -148,6 +187,7 @@ landing.get('/:code', async (c) => {
   const listed = payload.sub_topics.slice(0, MAX_LISTED_LESSONS);
   const more = payload.sub_topics.length - listed.length;
   const openUrl = openInAppUrl(c.env, platform, row.code);
+  const headline = payload.sharer_name ? t.sharedWithYouBy(payload.sharer_name) : t.sharedWithYou;
   const reasons = Object.entries(t.reasons)
     .map(([key, label]) => `<button type="button" class="reason" data-reason="${key}">${escapeHtml(label)}</button>`)
     .join('');
@@ -159,17 +199,21 @@ landing.get('/:code', async (c) => {
     description: `${summary} · ${t.learnInStuddly}`,
     canonical: shareUrl,
     appArgument: shareUrl,
-    body: `<p class="kicker">${escapeHtml(t.sharedWithYou)}</p>
-<section class="card">
-<h1>${escapeHtml(payload.title)}</h1>
-<p class="muted">${escapeHtml(summary)}</p>
+    body: `<h1 class="kicker">${escapeHtml(headline)}</h1>
+${topicCard(payload.title, row.sub_topic_count, t)}
+<p class="muted summary">${escapeHtml(summary)}</p>
+<div class="actions">
+${
+      openUrl
+        ? `<a class="btn primary" href="${escapeHtml(openUrl)}" aria-label="${escapeHtml(t.openInApp)}"><img class="btn-mark" src="/icon.png" alt="" width="26" height="26"><span>${escapeHtml(t.openIn)}</span><img class="btn-logotype" src="/logotype.png" alt="Studdly" width="79" height="18"></a>`
+        : ''
+    }
+${storeButtons(c.env, t, platform, row.code)}
+</div>
+<section class="inside">
 <ol class="lessons">${listed.map((s) => `<li>${escapeHtml(s.title)}</li>`).join('')}</ol>
 ${more > 0 ? `<p class="muted more">${escapeHtml(t.andMore(more))}</p>` : ''}
 </section>
-<div class="actions">
-${openUrl ? `<a class="btn primary" href="${escapeHtml(openUrl)}">${escapeHtml(t.openInApp)}</a>` : ''}
-${storeButtons(c.env, t, platform, row.code)}
-</div>
 <p class="muted hint">${escapeHtml(t.installHint)}</p>
 <p class="muted hint">${escapeHtml(t.validUntil(new Intl.DateTimeFormat(t.lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(expiresAt(row) * 1000))))}</p>
 <details class="report" data-code="${row.code}">

@@ -44,6 +44,29 @@ describe('payload validation', () => {
     if (!r.ok) expect(r.issues.map((i) => i.path)).toEqual(expect.arrayContaining(['pages', 'user_name']));
   });
 
+  it('accepts an optional sharer_name, normalized and length-capped', () => {
+    const ok = validatePayload(samplePayload({ sharer_name: '  Kasia\t ' }));
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.payload.sharer_name).toBe('Kasia');
+
+    const long = validatePayload(samplePayload({ sharer_name: 'x'.repeat(33) }));
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.issues.map((i) => i.path)).toContain('sharer_name');
+
+    const wrongType = validatePayload(samplePayload({ sharer_name: 42 }));
+    expect(wrongType.ok).toBe(false);
+  });
+
+  it('treats a missing, null or blank sharer_name as no name', () => {
+    for (const value of [undefined, null, '   ']) {
+      const payload = samplePayload();
+      if (value !== undefined) (payload as Record<string, unknown>).sharer_name = value;
+      const r = validatePayload(payload);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.payload.sharer_name).toBeUndefined();
+    }
+  });
+
   it('flags newer schemas separately', () => {
     const r = validatePayload(samplePayload({ schema: 2 }));
     expect(r.ok).toBe(false);

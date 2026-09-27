@@ -51,7 +51,7 @@ It is one Cloudflare Worker that serves:
 
 - **App installed, onboarding done** → the link opens Studdly directly (App Links / Universal Links) → the app downloads the payload → shows a friendly "Add this topic?" confirmation → topic appears on Home as **ready**, progress starts at 0.
 - **App installed, onboarding not done yet** (fresh install, or no AI key) → the code is saved as a *pending import* → normal onboarding (name + provider + key) → right after onboarding the "Add this topic?" confirmation appears.
-- **App not installed** → landing page in the browser: title, list of lessons, big "Get Studdly" button (Play / App Store). After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
+- **App not installed** → landing page in the browser: "<name> shared a topic with you!", the topic card as it looks on the app's Home (title, 0/N progress bar, chevron), "Open in Studdly" plus the store buttons, then the list of lessons. After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
 - **Opened inside an in-app browser** (Instagram/TikTok/Messenger often block universal links) → landing page shows "Open in Studdly" button (Android `intent://` URL with store fallback; iOS custom scheme fallback). See `DEEP_LINKS.md`.
 
 ---
@@ -73,11 +73,13 @@ It is one Cloudflare Worker that serves:
 | D11 | **Free plan hard limits are a feature** — there is no way to get a surprise bill. Break-glass = Workers Paid ($5/month) which raises every limit by 100×. | "Darmowe i niezawodne": the capacity math in `INFRA.md` shows ~35× headroom at today's scale. |
 | D12 | **Re-tap offline → remembered link** (owner's decision). Only a definite `404`/`410` triggers a re-upload. | Sharing must not fail just because the phone is offline for a moment; an expired link is replaced on the next online tap. |
 | D14 | **Owner dashboard at `/admin`** (server-rendered, Polish). Password hashed with SHA-256 in the browser; the server stores only `sha256(that digest)` in D1 `settings` (never in the public repo). | One place to see the whole system: health, traffic, storage, limits, moderation, errors, and every stored topic. |
+| D15 | **Landing page greets by name** — the payload may carry an optional `sharer_name`, and the page says "Kasia udostępnił Ci temat!" instead of "Ktoś…". The topic itself is rendered as the app's home-screen topic card (title + 0/N progress + chevron), followed by "Open in Studdly" and the store buttons. | A named greeting and a card the recipient will recognise from the app make the link feel personal instead of automated. The name is optional in both directions, so shipped app versions and nameless payloads keep working. |
 | D13 | **No key-less mode for recipients** (owner's decision). Import happens only after onboarding is complete. | Keeps the app's onboarding rules (`APP_CONTEXT.md`: one provider, one key) unchanged. |
 
 ## Non-negotiables
 
-- ✅ Never store or log raw `owner_secret`, IPs in plain text, user names, device ids, OCR text, or API keys.
+- ✅ Never store or log raw `owner_secret`, IPs in plain text, device ids, OCR text, or API keys.
+- ⚠️ **One deliberate exception (D15):** the optional `sharer_name` in the payload — the sender's first name, ≤ 32 chars, shown on the landing page. Stored with the share, never logged, never in metrics, gone when the share expires or is deleted. Nothing else about a user may follow it in.
 - ✅ Validate every payload strictly (schema, sizes, counts, string lengths). Reject unknown fields.
 - ✅ Render user content as **text only** (escape everything; no Markdown→HTML, no links).
 - ✅ Every non-2xx API response has a stable machine-readable `error` code (see `API_SPEC.md`) — the app maps codes to localized copy, never shows raw bodies.
