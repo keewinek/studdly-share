@@ -260,7 +260,8 @@ describe('landing page', () => {
   it('greets by name when the payload carries one, and escapes it', async () => {
     const { code } = await createOk(samplePayload({ sharer_name: 'Kasia' }));
     const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();
-    expect(html).toContain('Kasia udostępnił Ci temat!');
+    // Present tense: right for a sender of any gender.
+    expect(html).toContain('Kasia udostępnia Ci temat!');
     expect(html).not.toContain('Ktoś udostępnił Ci temat!');
 
     const evil = await createOk(samplePayload({ sharer_name: '<img src=x onerror=1>' }));

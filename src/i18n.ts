@@ -89,7 +89,8 @@ const en: Strings = {
 const pl: Strings = {
   lang: 'pl',
   sharedWithYou: 'Ktoś udostępnił Ci temat!',
-  sharedWithYouBy: (name) => `${name} udostępnił Ci temat!`,
+  // Present tense, so it is right whether the sender is a boy or a girl.
+  sharedWithYouBy: (name) => `${name} udostępnia Ci temat!`,
   lessons: (n) => `${n} ${plPlural(n, 'lekcja', 'lekcje', 'lekcji')}`,
   questions: (n) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')} w quizach`,
   openInApp: 'Otwórz w Studdly',
