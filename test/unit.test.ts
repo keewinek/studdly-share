@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { pickStrings } from '../src/i18n';
 import { CODE_ALPHABET, generateCode, isValidCode } from '../src/lib/code';
 import { gunzip, gzip } from '../src/lib/crypto';
-import { normalizeLine, normalizeText, validatePayload } from '../src/lib/payload';
+import { normalizeLine, normalizeText, SUPPORTED_LANGUAGES, validatePayload } from '../src/lib/payload';
 import { samplePayload } from './helpers';
 
 describe('share codes', () => {
@@ -107,8 +107,27 @@ describe('gzip helpers', () => {
 describe('landing language', () => {
   it('picks the best supported language', () => {
     expect(pickStrings('pl-PL,pl;q=0.9,en;q=0.8').lang).toBe('pl');
-    expect(pickStrings('de-DE,en;q=0.5').lang).toBe('en');
+    expect(pickStrings('de-DE,en;q=0.5').lang).toBe('de');
     expect(pickStrings('en;q=0.3,pl;q=0.9').lang).toBe('pl');
     expect(pickStrings(undefined).lang).toBe('en');
+    // Unsupported language still falls back to English.
+    expect(pickStrings('ja-JP,ja;q=0.9').lang).toBe('en');
+  });
+
+  it('has copy for every language the app can send', () => {
+    for (const lang of SUPPORTED_LANGUAGES) {
+      const t = pickStrings(lang);
+      expect(t.lang).toBe(lang);
+      // Spot-check the strings the landing page cannot render without.
+      expect(t.sharedWithYouBy('Kasia')).toContain('Kasia');
+      expect(t.lessons(1)).toContain('1');
+      expect(t.lessons(5)).toContain('5');
+      expect(t.questions(2)).toContain('2');
+      expect(t.openIn.length).toBeGreaterThan(0);
+      expect(t.getItOn.length).toBeGreaterThan(0);
+      expect(t.downloadOnThe.length).toBeGreaterThan(0);
+      expect(t.validUntil('1.1.2030')).toContain('1.1.2030');
+      expect(Object.values(t.reasons).every((r) => r.length > 0)).toBe(true);
+    }
   });
 });

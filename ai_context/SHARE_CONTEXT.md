@@ -83,7 +83,7 @@ It is one Cloudflare Worker that serves:
 - ✅ Validate every payload strictly (schema, sizes, counts, string lengths). Reject unknown fields.
 - ✅ Render user content as **text only** (escape everything; no Markdown→HTML, no links).
 - ✅ Every non-2xx API response has a stable machine-readable `error` code (see `API_SPEC.md`) — the app maps codes to localized copy, never shows raw bodies.
-- ✅ Landing page copy must meet the Studdly **8-year-old simplicity bar** (see the app's `ai_context/APP_CONTEXT.md`), be localized (at least PL + EN, same language list as the app), and match Studdly visuals (black, Figtree, ocean `#4D67AA`).
+- ✅ Landing page copy must meet the Studdly **8-year-old simplicity bar** (see the app's `ai_context/APP_CONTEXT.md`), be localized (**all 8 app languages**: en pl es de fr uk hi id — `src/i18n.ts`, enforced by a test against `SUPPORTED_LANGUAGES`), and match Studdly visuals (black, Figtree, ocean `#4D67AA`). A new app language needs an entry in `i18n.ts` in the same change.
 - ✅ Keep the Worker CPU-cheap (free plan = 10 ms CPU/request): no heavy libraries, no server-side Markdown, no image generation.
 - ❌ No AI inference on the server. Studdly stays BYOK / client-side for analysis — this service only stores already-generated paths.
 - ❌ No user accounts, no tracking cookies, no third-party scripts on the landing page.
