@@ -23,7 +23,7 @@ Client-side (Flutter) spec lives in the app repo: `keewinek/studdly` → `ai_con
 It is one Cloudflare Worker that serves:
 
 1. **JSON API** (`/api/v1/...`) — create a share, check it is still alive, fetch it for import, report it.
-2. **Landing page** (`/{code}`) — server-rendered preview (title, lesson list, "Open in Studdly", store badges) with Open Graph tags so the link looks good in Messenger / WhatsApp / Discord / iMessage.
+2. **Landing page** (`/{code}`) — server-rendered preview (named greeting, the app's topic card, "Open in Studdly", store buttons) with Open Graph tags so the link looks good in Messenger / WhatsApp / Discord / iMessage.
 3. **Well-known files** — `assetlinks.json` (Android App Links) and `apple-app-site-association` (iOS Universal Links), so the link opens the app directly when installed.
 
 ## Why it exists (product)
@@ -51,7 +51,7 @@ It is one Cloudflare Worker that serves:
 
 - **App installed, onboarding done** → the link opens Studdly directly (App Links / Universal Links) → the app downloads the payload → shows a friendly "Add this topic?" confirmation → topic appears on Home as **ready**, progress starts at 0.
 - **App installed, onboarding not done yet** (fresh install, or no AI key) → the code is saved as a *pending import* → normal onboarding (name + provider + key) → right after onboarding the "Add this topic?" confirmation appears.
-- **App not installed** → landing page in the browser: "<name> shared a topic with you!", the topic card as it looks on the app's Home (title, 0/N progress bar, chevron), "Open in Studdly" plus the store buttons, then the list of lessons. After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
+- **App not installed** → landing page in the browser: "<name> shared a topic with you!", the topic card as it looks on the app's Home (title, 0/N progress bar, chevron), then "Open in Studdly" plus the store buttons. Individual lesson titles are deliberately **not** listed — the card plus the "N lekcji · N pytań" summary is the whole preview. After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
 - **Opened inside an in-app browser** (Instagram/TikTok/Messenger often block universal links) → landing page shows "Open in Studdly" button (Android `intent://` URL with store fallback; iOS custom scheme fallback). See `DEEP_LINKS.md`.
 
 ---

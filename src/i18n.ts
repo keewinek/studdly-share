@@ -10,7 +10,6 @@ export interface Strings {
   sharedWithYouBy: (name: string) => string;
   lessons: (n: number) => string;
   questions: (n: number) => string;
-  andMore: (n: number) => string;
   openInApp: string;
   /** "Open in" — the Studdly logotype image follows it inside the button. */
   openIn: string;
@@ -50,7 +49,6 @@ const en: Strings = {
   sharedWithYouBy: (name) => `${name} shared a topic with you!`,
   lessons: (n) => `${n} ${n === 1 ? 'lesson' : 'lessons'}`,
   questions: (n) => `${n} quiz ${n === 1 ? 'question' : 'questions'}`,
-  andMore: (n) => `and ${n} more`,
   openInApp: 'Open in Studdly',
   openIn: 'Open in',
   googlePlay: 'Get it on Google Play',
@@ -86,7 +84,6 @@ const pl: Strings = {
   sharedWithYouBy: (name) => `${name} udostępnił Ci temat!`,
   lessons: (n) => `${n} ${plPlural(n, 'lekcja', 'lekcje', 'lekcji')}`,
   questions: (n) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')} w quizach`,
-  andMore: (n) => `i ${n} więcej`,
   openInApp: 'Otwórz w Studdly',
   openIn: 'Otwórz w',
   googlePlay: 'Pobierz z Google Play',

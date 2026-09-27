@@ -8,7 +8,6 @@ import type { PayloadV1 } from '../lib/payload';
 import { expiresAt, readPayload } from '../lib/store';
 import { count, countShare } from '../lib/metrics';
 
-const MAX_LISTED_LESSONS = 12;
 
 /**
  * Inline monochrome store/chevron marks. They use SVG presentation attributes
@@ -184,8 +183,6 @@ landing.get('/:code', async (c) => {
   const platform = platformOf(c.req.header('User-Agent'));
   const shareUrl = `${c.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/${row.code}`;
   const summary = `${t.lessons(row.sub_topic_count)} · ${t.questions(row.question_count)}`;
-  const listed = payload.sub_topics.slice(0, MAX_LISTED_LESSONS);
-  const more = payload.sub_topics.length - listed.length;
   const openUrl = openInAppUrl(c.env, platform, row.code);
   const headline = payload.sharer_name ? t.sharedWithYouBy(payload.sharer_name) : t.sharedWithYou;
   const reasons = Object.entries(t.reasons)
@@ -210,10 +207,6 @@ ${
     }
 ${storeButtons(c.env, t, platform, row.code)}
 </div>
-<section class="inside">
-<ol class="lessons">${listed.map((s) => `<li>${escapeHtml(s.title)}</li>`).join('')}</ol>
-${more > 0 ? `<p class="muted more">${escapeHtml(t.andMore(more))}</p>` : ''}
-</section>
 <p class="muted hint">${escapeHtml(t.installHint)}</p>
 <p class="muted hint">${escapeHtml(t.validUntil(new Intl.DateTimeFormat(t.lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(expiresAt(row) * 1000))))}</p>
 <details class="report" data-code="${row.code}">

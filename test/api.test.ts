@@ -239,7 +239,8 @@ describe('landing page', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quotes&quot;');
     expect(html).toContain('Ktoś udostępnił Ci temat!');
     expect(html).toContain('2 lekcje · 3 pytania w quizach');
-    expect(html).toContain('Chlorofil');
+    // Lesson titles are not listed on the page any more — only the topic title.
+    expect(html).not.toContain('Chlorofil');
     expect(html).toContain(`intent://share.studdly.app/${code}#Intent;scheme=https;package=com.studdly.app`);
     expect(html).toContain('referrer%3Dshare_code%253D' + code);
     expect(html).toContain(`<meta property="og:url" content="${BASE}/${code}">`);
