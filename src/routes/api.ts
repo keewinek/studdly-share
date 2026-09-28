@@ -41,6 +41,11 @@ export const api = new Hono<AppContext>();
 
 const shareUrl = (c: Context<AppContext>, code: string) => `${c.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/${code}`;
 
+/// Moderation deep link. Reports carry the code and a link to the dashboard
+/// rather than the reported content itself — see the report handler below.
+const adminShareUrl = (c: Context<AppContext>, code: string) =>
+  `${c.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/admin/shares/${code}`;
+
 function created(c: Context<AppContext>, row: Pick<ShareRow, 'code' | 'created_at'>, status: 200 | 201): Response {
   const url = shareUrl(c, row.code);
   return c.json({ code: row.code, url, created_at: row.created_at, expires_at: expiresAt(row) }, status, {
@@ -316,9 +321,14 @@ api.post('/shares/:code/reports', async (c) => {
   c.executionCtx.waitUntil(
     postDiscord(
       c.env.DISCORD_MODERATION_WEBHOOK,
-      `🚩 Report **${reason}** for ${shareUrl(c, code)} — “${row.title}” (${reporters} reporter(s))` +
+      // Code and reason only. The title is user content and `details` is free
+      // text written by the reporter — both can carry personal data, and
+      // Discord is a third party we have no processing agreement with. They
+      // stay in D1 and are read in /admin, which runs on the same
+      // infrastructure as the rest of the data.
+      `🚩 Report **${reason}** for \`${code}\` (${reporters} reporter(s))` +
         (hidden ? '\n⛔ Auto-hidden until reviewed.' : '') +
-        (details ? `\n> ${details.replace(/\n/g, ' ')}` : ''),
+        `\n${adminShareUrl(c, code)}`,
     ),
   );
   return accepted;
