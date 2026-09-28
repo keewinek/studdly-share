@@ -23,7 +23,7 @@ Client-side (Flutter) spec lives in the app repo: `keewinek/studdly` → `ai_con
 It is one Cloudflare Worker that serves:
 
 1. **JSON API** (`/api/v1/...`) — create a share, check it is still alive, fetch it for import, report it.
-2. **Landing page** (`/{code}`) — server-rendered preview (title, lesson list, "Open in Studdly", store badges) with Open Graph tags so the link looks good in Messenger / WhatsApp / Discord / iMessage.
+2. **Landing page** (`/{code}`) — server-rendered preview (named greeting, the app's topic card, "Open in Studdly", store buttons) with Open Graph tags so the link looks good in Messenger / WhatsApp / Discord / iMessage.
 3. **Well-known files** — `assetlinks.json` (Android App Links) and `apple-app-site-association` (iOS Universal Links), so the link opens the app directly when installed.
 
 ## Why it exists (product)
@@ -51,7 +51,7 @@ It is one Cloudflare Worker that serves:
 
 - **App installed, onboarding done** → the link opens Studdly directly (App Links / Universal Links) → the app downloads the payload → shows a friendly "Add this topic?" confirmation → topic appears on Home as **ready**, progress starts at 0.
 - **App installed, onboarding not done yet** (fresh install, or no AI key) → the code is saved as a *pending import* → normal onboarding (name + provider + key) → right after onboarding the "Add this topic?" confirmation appears.
-- **App not installed** → landing page in the browser: title, list of lessons, big "Get Studdly" button (Play / App Store). After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
+- **App not installed** → landing page in the browser: "<name> shared a topic with you!", the topic card as it looks on the app's Home (title, 0/N progress bar, chevron), then "Open in Studdly" plus the store buttons. Individual lesson titles are deliberately **not** listed — the card plus the "N lekcji · N pytań" summary is the whole preview. After install, the user taps the link again (iOS) or the app picks up the code from the Play Install Referrer (Android, phase 2).
 - **Opened inside an in-app browser** (Instagram/TikTok/Messenger often block universal links) → landing page shows "Open in Studdly" button (Android `intent://` URL with store fallback; iOS custom scheme fallback). See `DEEP_LINKS.md`.
 
 ---
@@ -73,17 +73,19 @@ It is one Cloudflare Worker that serves:
 | D11 | **Free plan hard limits are a feature** — there is no way to get a surprise bill. Break-glass = Workers Paid ($5/month) which raises every limit by 100×. | "Darmowe i niezawodne": the capacity math in `INFRA.md` shows ~35× headroom at today's scale. |
 | D12 | **Re-tap offline → remembered link** (owner's decision). Only a definite `404`/`410` triggers a re-upload. | Sharing must not fail just because the phone is offline for a moment; an expired link is replaced on the next online tap. |
 | D14 | **Owner dashboard at `/admin`** (server-rendered, Polish). Password hashed with SHA-256 in the browser; the server stores only `sha256(that digest)` in D1 `settings` (never in the public repo). | One place to see the whole system: health, traffic, storage, limits, moderation, errors, and every stored topic. |
+| D15 | **Landing page greets by name** — the payload may carry an optional `sharer_name`, and the page says "Kasia udostępnia Ci temat!" instead of "Ktoś…" (present tense, so the greeting is right for a sender of any gender — the nameless "Ktoś udostępnił" stays, since the pronoun takes masculine agreement in Polish). The topic itself is rendered as the app's home-screen topic card (title + 0/N progress + chevron), followed by "Open in Studdly" and the store buttons. | A named greeting and a card the recipient will recognise from the app make the link feel personal instead of automated. The name is optional in both directions, so shipped app versions and nameless payloads keep working. |
 | D13 | **No key-less mode for recipients** (owner's decision). Import happens only after onboarding is complete. | Keeps the app's onboarding rules (`APP_CONTEXT.md`: one provider, one key) unchanged. |
 | D15 | **Never build a catalogue, a search over shares, a "popular topics" list, or any other way to discover a share without being handed its link. Never monetise sharing.** | This is what keeps the service outside the definition of a *dostawca usług udostępniania treści online* (OCSSP) in art. 6(1)(25) of the Polish copyright act, which requires storing a large number of works **and organising and promoting them for profit**. Art. 22¹(3) of the same act **switches off the art. 14 UŚUDE hosting safe harbour** for OCSSPs, so they answer for user content like a publisher. Adding a discovery surface would trade the safe harbour for a growth feature. See `keewinek/studdly` → `ai_context/legal/`, chapter 03 §E.6. |
 | D16 | **Any future per-install identifier (e.g. an `install_token` for blocking abusers) must not be tied to a contact channel.** | DSA art. 17(2) makes the duty to serve a statement of reasons to the author of removed content apply *only where the provider knows the relevant electronic contact details*. Today we hold only `sha256(owner_secret)` and know nothing about the author, so auto-hiding a share creates no notification duty. A token carrying a way to reach the owner would create one. |
 
 ## Non-negotiables
 
-- ✅ Never store or log raw `owner_secret`, IPs in plain text, user names, device ids, OCR text, or API keys.
+- ✅ Never store or log raw `owner_secret`, IPs in plain text, device ids, OCR text, or API keys.
+- ⚠️ **One deliberate exception (D15):** the optional `sharer_name` in the payload — the sender's first name, ≤ 32 chars, shown on the landing page. Stored with the share, never logged, never in metrics, gone when the share expires or is deleted. Nothing else about a user may follow it in.
 - ✅ Validate every payload strictly (schema, sizes, counts, string lengths). Reject unknown fields.
 - ✅ Render user content as **text only** (escape everything; no Markdown→HTML, no links).
 - ✅ Every non-2xx API response has a stable machine-readable `error` code (see `API_SPEC.md`) — the app maps codes to localized copy, never shows raw bodies.
-- ✅ Landing page copy must meet the Studdly **8-year-old simplicity bar** (see the app's `ai_context/APP_CONTEXT.md`), be localized (at least PL + EN, same language list as the app), and match Studdly visuals (black, Figtree, ocean `#4D67AA`).
+- ✅ Landing page copy must meet the Studdly **8-year-old simplicity bar** (see the app's `ai_context/APP_CONTEXT.md`), be localized (**all 8 app languages**: en pl es de fr uk hi id — `src/i18n.ts`, enforced by a test against `SUPPORTED_LANGUAGES`), and match Studdly visuals (black, Figtree, ocean `#4D67AA`). A new app language needs an entry in `i18n.ts` in the same change.
 - ✅ Keep the Worker CPU-cheap (free plan = 10 ms CPU/request): no heavy libraries, no server-side Markdown, no image generation.
 - ❌ No AI inference on the server. Studdly stays BYOK / client-side for analysis — this service only stores already-generated paths.
 - ❌ No user accounts, no tracking cookies, no third-party scripts on the landing page.

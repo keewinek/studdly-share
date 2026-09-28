@@ -11,7 +11,7 @@ App identifiers (from the app repo): Android `applicationId` **`com.studdly.app`
                 │ no                                      → "Add this topic?" → import → open path
                 ▼
    Landing page (Worker HTML)
-     ├─ preview: title, N lessons, lesson titles, language flag
+     ├─ preview: greeting, topic card (title + 0/N progress), N lessons · N questions
      ├─ [Open in Studdly]  (for in-app browsers that don't hand links to apps)
      ├─ [Get it on Google Play] / [Download on the App Store]  (auto-picks by user agent, shows both on desktop)
      └─ small "Report" link

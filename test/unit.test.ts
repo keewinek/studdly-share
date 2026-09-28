@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { pickStrings } from '../src/i18n';
 import { CODE_ALPHABET, generateCode, isValidCode } from '../src/lib/code';
 import { gunzip, gzip } from '../src/lib/crypto';
-import { normalizeLine, normalizeText, validatePayload } from '../src/lib/payload';
+import { normalizeLine, normalizeText, SUPPORTED_LANGUAGES, validatePayload } from '../src/lib/payload';
 import { samplePayload } from './helpers';
 
 describe('share codes', () => {
@@ -42,6 +42,29 @@ describe('payload validation', () => {
     const r = validatePayload(samplePayload({ pages: [{ text: 'OCR' }], user_name: 'Kasia' }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.issues.map((i) => i.path)).toEqual(expect.arrayContaining(['pages', 'user_name']));
+  });
+
+  it('accepts an optional sharer_name, normalized and length-capped', () => {
+    const ok = validatePayload(samplePayload({ sharer_name: '  Kasia\t ' }));
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.payload.sharer_name).toBe('Kasia');
+
+    const long = validatePayload(samplePayload({ sharer_name: 'x'.repeat(33) }));
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.issues.map((i) => i.path)).toContain('sharer_name');
+
+    const wrongType = validatePayload(samplePayload({ sharer_name: 42 }));
+    expect(wrongType.ok).toBe(false);
+  });
+
+  it('treats a missing, null or blank sharer_name as no name', () => {
+    for (const value of [undefined, null, '   ']) {
+      const payload = samplePayload();
+      if (value !== undefined) (payload as Record<string, unknown>).sharer_name = value;
+      const r = validatePayload(payload);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.payload.sharer_name).toBeUndefined();
+    }
   });
 
   it('flags newer schemas separately', () => {
@@ -84,8 +107,27 @@ describe('gzip helpers', () => {
 describe('landing language', () => {
   it('picks the best supported language', () => {
     expect(pickStrings('pl-PL,pl;q=0.9,en;q=0.8').lang).toBe('pl');
-    expect(pickStrings('de-DE,en;q=0.5').lang).toBe('en');
+    expect(pickStrings('de-DE,en;q=0.5').lang).toBe('de');
     expect(pickStrings('en;q=0.3,pl;q=0.9').lang).toBe('pl');
     expect(pickStrings(undefined).lang).toBe('en');
+    // Unsupported language still falls back to English.
+    expect(pickStrings('ja-JP,ja;q=0.9').lang).toBe('en');
+  });
+
+  it('has copy for every language the app can send', () => {
+    for (const lang of SUPPORTED_LANGUAGES) {
+      const t = pickStrings(lang);
+      expect(t.lang).toBe(lang);
+      // Spot-check the strings the landing page cannot render without.
+      expect(t.sharedWithYouBy('Kasia')).toContain('Kasia');
+      expect(t.lessons(1)).toContain('1');
+      expect(t.lessons(5)).toContain('5');
+      expect(t.questions(2)).toContain('2');
+      expect(t.openIn.length).toBeGreaterThan(0);
+      expect(t.getItOn.length).toBeGreaterThan(0);
+      expect(t.downloadOnThe.length).toBeGreaterThan(0);
+      expect(t.validUntil('1.1.2030')).toContain('1.1.2030');
+      expect(Object.values(t.reasons).every((r) => r.length > 0)).toBe(true);
+    }
   });
 });

@@ -16,6 +16,7 @@ export const LIMITS = {
   content: 20_000,
   questions: 30,
   question: 500,
+  sharerName: 32,
   answer: 300,
   wrongAnswers: 6,
 } as const;
@@ -35,6 +36,13 @@ export interface SubTopicV1 {
 export interface PayloadV1 {
   schema: 1;
   title: string;
+  /**
+   * Optional first name of the person sharing, shown on the landing page as
+   * "<name> shared a topic with you!". Free text typed by the user in the app —
+   * never an account id. Absent on every payload created before this field
+   * existed, so the landing page must always have a nameless fallback.
+   */
+  sharer_name?: string;
   language: (typeof SUPPORTED_LANGUAGES)[number];
   advancement_level: (typeof ADVANCEMENT_LEVELS)[number];
   sub_topics: SubTopicV1[];
@@ -122,9 +130,26 @@ export function validatePayload(input: unknown): ValidationResult {
   }
   if (input.schema !== PAYLOAD_SCHEMA_VERSION) c.fail('schema', `must be ${PAYLOAD_SCHEMA_VERSION}`);
 
-  c.keys(input, ['schema', 'title', 'language', 'advancement_level', 'sub_topics'], '');
+  c.keys(input, ['schema', 'title', 'language', 'advancement_level', 'sub_topics', 'sharer_name'], '');
 
   const title = c.text(input.title, 'title', LIMITS.title, false);
+
+  // Optional. Absent, null and blank all mean "no name" — only a wrong type or
+  // an over-long name is an error, so old and nameless apps keep validating.
+  let sharerName: string | undefined;
+  const rawName = input.sharer_name;
+  if (rawName !== undefined && rawName !== null) {
+    if (typeof rawName !== 'string') {
+      c.fail('sharer_name', 'must be a string');
+    } else {
+      const normalized = normalizeLine(rawName);
+      if (normalized.length > LIMITS.sharerName) {
+        c.fail('sharer_name', `must be at most ${LIMITS.sharerName} characters`);
+      } else if (normalized.length > 0) {
+        sharerName = normalized;
+      }
+    }
+  }
 
   const language = input.language;
   if (typeof language !== 'string' || !(SUPPORTED_LANGUAGES as readonly string[]).includes(language)) {
@@ -176,6 +201,7 @@ export function validatePayload(input: unknown): ValidationResult {
     payload: {
       schema: 1,
       title,
+      ...(sharerName === undefined ? {} : { sharer_name: sharerName }),
       language: language as PayloadV1['language'],
       advancement_level: level as PayloadV1['advancement_level'],
       sub_topics: subTopics,

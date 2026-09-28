@@ -239,11 +239,63 @@ describe('landing page', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quotes&quot;');
     expect(html).toContain('Ktoś udostępnił Ci temat!');
     expect(html).toContain('2 lekcje · 3 pytania w quizach');
-    expect(html).toContain('Chlorofil');
+    // Lesson titles are not listed on the page any more — only the topic title.
+    expect(html).not.toContain('Chlorofil');
     expect(html).toContain(`intent://share.studdly.app/${code}#Intent;scheme=https;package=com.studdly.app`);
     expect(html).toContain('referrer%3Dshare_code%253D' + code);
     expect(html).toContain(`<meta property="og:url" content="${BASE}/${code}">`);
     expect(html).not.toContain('apps.apple.com');
+  });
+
+  it('renders the app topic card with an unstarted progress bar', async () => {
+    const { code } = await createOk(samplePayload());
+    const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();
+    expect(html).toContain('class="topic-card"');
+    expect(html).toContain('<span class="progress-label">0/2</span>');
+    expect(html).toContain('<span class="progress-label right">0%</span>');
+    // Two lessons -> two tick cells (one divider between them).
+    expect(html).toContain('<span class="ticks"><i></i><i></i></span>');
+  });
+
+  it('greets by name when the payload carries one, and escapes it', async () => {
+    const { code } = await createOk(samplePayload({ sharer_name: 'Kasia' }));
+    const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();
+    // Present tense: right for a sender of any gender.
+    expect(html).toContain('Kasia udostępnia Ci temat!');
+    expect(html).not.toContain('Ktoś udostępnił Ci temat!');
+
+    const evil = await createOk(samplePayload({ sharer_name: '<img src=x onerror=1>' }));
+    const evilHtml = await (await get(`/${evil.code}`, { headers: { 'Accept-Language': 'pl' } })).text();
+    expect(evilHtml).not.toContain('<img src=x onerror=1>');
+    expect(evilHtml).toContain('&lt;img src=x onerror=1&gt;');
+  });
+
+  it('falls back to the nameless greeting for payloads without a name', async () => {
+    const { code } = await createOk(samplePayload());
+    const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'en' } })).text();
+    expect(html).toContain('Someone shared a topic with you!');
+  });
+
+  it('offers an Open-in-Studdly button with the logotype on mobile', async () => {
+    const { code } = await createOk(samplePayload());
+    const html = await (await get(`/${code}`, {
+      headers: { 'Accept-Language': 'pl', 'User-Agent': 'Mozilla/5.0 (Linux; Android 14)' },
+    })).text();
+    expect(html).toContain('class="btn-logotype" src="/logotype.png" alt="Studdly"');
+    expect(html).toContain('>Otwórz w</span>');
+    expect(html).toContain('<span class="store-name">Google Play</span>');
+  });
+
+  it('shows both store buttons with brand marks on desktop, with no inline styles', async () => {
+    const { code } = await createOk(samplePayload());
+    const html = await (await get(`/${code}`, {
+      headers: { 'Accept-Language': 'pl', 'User-Agent': 'Mozilla/5.0 (Macintosh)' },
+    })).text();
+    expect(html).toContain('<span class="store-name">Google Play</span>');
+    expect(html).toContain('<span class="store-name">App Store</span>');
+    expect(html).toContain('class="store-logo"');
+    // CSP is style-src 'self' — an inline style attribute would be blocked.
+    expect(html).not.toMatch(/<[^>]+\sstyle=/);
   });
 
   it('shows friendly 404 and 410 pages', async () => {

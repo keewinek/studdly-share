@@ -136,6 +136,9 @@ Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`,
 {
   "schema": 1,
   "title": "Fotosynteza",                 // 1..120 chars
+  "sharer_name": "Kasia",                  // OPTIONAL, 0..32 chars — first name typed by
+                                           // the sender in the app; shown on the landing
+                                           // page. Omit / null / blank = no name.
   "language": "pl",                        // one of the app's shipped codes: en pl es de fr uk hi id
   "advancement_level": "normal",           // fast | normal | exact
   "sub_topics": [                          // 1..150 items, in learning order
@@ -156,7 +159,8 @@ Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`,
 
 Rules:
 - Strings: NFC-normalized, control chars stripped except `\n` and `\t`, trimmed. Empty after trimming → invalid.
-- **Not included on purpose:** local ids, `completed` flags, `pages` / OCR text, user name, device/user id, API provider, timestamps from the device. Recipients regenerate ids.
+- **Not included on purpose:** local ids, `completed` flags, `pages` / OCR text, device/user id, API provider, timestamps from the device. Recipients regenerate ids.
+- `sharer_name` is the **one** piece of user-entered personal data in the payload, added so the landing page can say "Kasia shared a topic with you!". It is optional in both directions: old apps never send it, and the landing page always has a nameless fallback. It is a display name only — never an account id, never logged, and it disappears with the share (30-day expiry / delete / takedown). A wrong type or > 32 chars is `400 invalid_payload`; blank or `null` is accepted and treated as absent.
 - Total validated payload ≤ 1 MiB. Typical: 30–120 KB raw → 8–30 KB gzipped.
 - Adding optional fields later = still `schema: 1`. Renaming/removing/semantic change = `schema: 2`, and the server must keep accepting (and serving) `1`.
 
