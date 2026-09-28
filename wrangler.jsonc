@@ -47,7 +47,7 @@
     "APP_STORE_URL": "https://apps.apple.com/app/studdly/id6755741754",
     "PRIVACY_POLICY_URL": "https://studdly.netlify.app/privacy_policy",
     "TERMS_URL": "https://studdly.netlify.app/terms",
-    "CONTACT_EMAIL": "hi@studdly.app"
+    "CONTACT_EMAIL": "keewinek@gmail.com"
   },
 
   "triggers": { "crons": ["17 3 * * *"] },

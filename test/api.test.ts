@@ -262,7 +262,7 @@ describe('landing page', () => {
     // details. A missing binding would silently render "undefined" here.
     const { code } = await createOk(samplePayload());
     const html = await (await get(`/${code}`)).text();
-    expect(html).toContain('mailto:hi@studdly.app');
+    expect(html).toContain('mailto:keewinek@gmail.com');
     expect(html).toContain('/terms');
     expect(html).toContain('/privacy_policy');
     expect(html).not.toContain('undefined');
