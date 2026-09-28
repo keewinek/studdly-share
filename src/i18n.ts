@@ -32,6 +32,8 @@ export interface Strings {
   reasons: Record<'inappropriate' | 'personal_data' | 'copyright' | 'spam' | 'other', string>;
   reportThanks: string;
   privacy: string;
+  terms: string;
+  contact: string;
 }
 
 /** Polish plural: 1 lekcja, 2–4 lekcje (not 12–14), 5+ lekcji. */
@@ -82,6 +84,8 @@ const en: Strings = {
   },
   reportThanks: "Thanks! We'll take a look.",
   privacy: 'Privacy policy',
+  terms: 'Terms of use',
+  contact: 'Contact us',
 };
 
 const pl: Strings = {
@@ -117,6 +121,8 @@ const pl: Strings = {
   },
   reportThanks: 'Dziękujemy! Sprawdzimy to.',
   privacy: 'Polityka prywatności',
+  terms: 'Regulamin',
+  contact: 'Kontakt',
 };
 
 
@@ -152,6 +158,8 @@ const es: Strings = {
   },
   reportThanks: '\u00a1Gracias! Lo revisaremos.',
   privacy: 'Pol\u00edtica de privacidad',
+  terms: 'Condiciones de uso',
+  contact: 'Contacto',
 };
 
 const de: Strings = {
@@ -186,6 +194,8 @@ const de: Strings = {
   },
   reportThanks: 'Danke! Wir schauen es uns an.',
   privacy: 'Datenschutz',
+  terms: 'Nutzungsbedingungen',
+  contact: 'Kontakt',
 };
 
 const fr: Strings = {
@@ -220,6 +230,8 @@ const fr: Strings = {
   },
   reportThanks: 'Merci\u202f! On va regarder.',
   privacy: 'Confidentialit\u00e9',
+  terms: 'Conditions d’utilisation',
+  contact: 'Contact',
 };
 
 const uk: Strings = {
@@ -255,6 +267,8 @@ const uk: Strings = {
   },
   reportThanks: '\u0414\u044f\u043a\u0443\u0454\u043c\u043e! \u041c\u0438 \u043f\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u043c\u043e.',
   privacy: '\u041f\u043e\u043b\u0456\u0442\u0438\u043a\u0430 \u043a\u043e\u043d\u0444\u0456\u0434\u0435\u043d\u0446\u0456\u0439\u043d\u043e\u0441\u0442\u0456',
+  terms: 'Правила користування',
+  contact: 'Контакти',
 };
 
 const hi: Strings = {
@@ -289,6 +303,8 @@ const hi: Strings = {
   },
   reportThanks: '\u0927\u0928\u094d\u092f\u0935\u093e\u0926! \u0939\u092e \u0926\u0947\u0916\u0947\u0902\u0917\u0947\u0964',
   privacy: '\u092a\u094d\u0930\u093e\u0907\u0935\u0947\u0938\u0940 \u0928\u0940\u0924\u093f',
+  terms: 'उपयोग की शर्तें',
+  contact: 'संपर्क',
 };
 
 const id: Strings = {
@@ -323,6 +339,8 @@ const id: Strings = {
   },
   reportThanks: 'Terima kasih! Kami akan cek.',
   privacy: 'Kebijakan privasi',
+  terms: 'Ketentuan penggunaan',
+  contact: 'Kontak',
 };
 
 const ALL: Record<string, Strings> = { en, pl, es, de, fr, uk, hi, id };

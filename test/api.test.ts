@@ -257,6 +257,17 @@ describe('landing page', () => {
     expect(html).toContain('<span class="ticks"><i></i><i></i></span>');
   });
 
+  it('publishes a contact address and a link to the terms in the footer', async () => {
+    // DSA art. 12 and Apple Guideline 1.2 both require published contact
+    // details. A missing binding would silently render "undefined" here.
+    const { code } = await createOk(samplePayload());
+    const html = await (await get(`/${code}`)).text();
+    expect(html).toContain('mailto:hi@studdly.app');
+    expect(html).toContain('/terms');
+    expect(html).toContain('/privacy_policy');
+    expect(html).not.toContain('undefined');
+  });
+
   it('never greets by name, even when an older build sends one', async () => {
     const { code } = await createOk(samplePayload({ sharer_name: 'Kasia' }));
     const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();

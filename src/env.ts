@@ -17,6 +17,9 @@ export interface Env {
   PLAY_STORE_URL: string;
   APP_STORE_URL: string;
   PRIVACY_POLICY_URL: string;
+  TERMS_URL: string;
+  /** Published contact address — DSA art. 12, Apple Guideline 1.2. */
+  CONTACT_EMAIL: string;
 
   // Secrets (all optional; features that need them turn off when missing).
   IP_HASH_SALT?: string;

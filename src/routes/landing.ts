@@ -133,7 +133,7 @@ ${smartBanner}
 <main>
 ${body}
 </main>
-<footer><a href="${escapeHtml(env.PRIVACY_POLICY_URL)}">${escapeHtml(t.privacy)}</a></footer>
+<footer><a href="${escapeHtml(env.PRIVACY_POLICY_URL)}">${escapeHtml(t.privacy)}</a> · <a href="${escapeHtml(env.TERMS_URL)}">${escapeHtml(t.terms)}</a> · <a href="mailto:${escapeHtml(env.CONTACT_EMAIL)}">${escapeHtml(t.contact)}</a></footer>
 </body>
 </html>`;
 }
