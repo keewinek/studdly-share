@@ -12,6 +12,7 @@ export type ErrorCode =
   | 'payload_too_large'
   | 'unsupported_media_type'
   | 'unsupported_schema'
+  | 'title_not_allowed'
   | 'rate_limited'
   | 'daily_limit_reached'
   | 'capacity_reached'

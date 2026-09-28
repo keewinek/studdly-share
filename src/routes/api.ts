@@ -144,11 +144,16 @@ api.post('/shares', async (c) => {
 
   const result = validatePayload(body);
   if (!result.ok) {
+    if (result.error === 'title_not_allowed') {
+      count('rejected_title');
+      return apiError(c, 422, 'title_not_allowed', 'Topic title contains language we do not publish');
+    }
     count('rejected_invalid');
     return result.error === 'unsupported_schema'
       ? apiError(c, 422, 'unsupported_schema', 'Payload schema is newer than this server supports')
       : apiError(c, 400, 'invalid_payload', 'Payload does not match schema v1', { issues: result.issues });
   }
+  if (result.redactions > 0) count('screened');
 
   try {
     const ownerHash = await sha256Hex(secret);

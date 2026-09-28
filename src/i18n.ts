@@ -7,7 +7,6 @@
 export interface Strings {
   lang: string;
   sharedWithYou: string;
-  sharedWithYouBy: (name: string) => string;
   lessons: (n: number) => string;
   questions: (n: number) => string;
   openInApp: string;
@@ -54,7 +53,6 @@ function ukPlural(n: number, one: string, few: string, many: string): string {
 const en: Strings = {
   lang: 'en',
   sharedWithYou: 'Someone shared a topic with you!',
-  sharedWithYouBy: (name) => `${name} shared a topic with you!`,
   lessons: (n) => `${n} ${n === 1 ? 'lesson' : 'lessons'}`,
   questions: (n) => `${n} quiz ${n === 1 ? 'question' : 'questions'}`,
   openInApp: 'Open in Studdly',
@@ -90,7 +88,6 @@ const pl: Strings = {
   lang: 'pl',
   sharedWithYou: 'Ktoś udostępnił Ci temat!',
   // Present tense, so it is right whether the sender is a boy or a girl.
-  sharedWithYouBy: (name) => `${name} udostępnia Ci temat!`,
   lessons: (n) => `${n} ${plPlural(n, 'lekcja', 'lekcje', 'lekcji')}`,
   questions: (n) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')} w quizach`,
   openInApp: 'Otwórz w Studdly',
@@ -126,7 +123,6 @@ const pl: Strings = {
 const es: Strings = {
   lang: 'es',
   sharedWithYou: '\u00a1Alguien te ha compartido un tema!',
-  sharedWithYouBy: (name) => `\u00a1${name} te ha compartido un tema!`,
   lessons: (n) => `${n} ${n === 1 ? 'lecci\u00f3n' : 'lecciones'}`,
   questions: (n) => `${n} ${n === 1 ? 'pregunta' : 'preguntas'} de quiz`,
   openInApp: 'Abrir en Studdly',
@@ -161,7 +157,6 @@ const es: Strings = {
 const de: Strings = {
   lang: 'de',
   sharedWithYou: 'Jemand hat ein Thema mit dir geteilt!',
-  sharedWithYouBy: (name) => `${name} hat ein Thema mit dir geteilt!`,
   lessons: (n) => `${n} ${n === 1 ? 'Lektion' : 'Lektionen'}`,
   questions: (n) => `${n} ${n === 1 ? 'Quizfrage' : 'Quizfragen'}`,
   openInApp: 'In Studdly \u00f6ffnen',
@@ -196,7 +191,6 @@ const de: Strings = {
 const fr: Strings = {
   lang: 'fr',
   sharedWithYou: "Quelqu'un a partag\u00e9 un sujet avec toi\u202f!",
-  sharedWithYouBy: (name) => `${name} a partag\u00e9 un sujet avec toi\u202f!`,
   lessons: (n) => `${n} ${n === 1 ? 'le\u00e7on' : 'le\u00e7ons'}`,
   questions: (n) => `${n} question${n === 1 ? '' : 's'} de quiz`,
   openInApp: 'Ouvrir dans Studdly',
@@ -232,7 +226,6 @@ const uk: Strings = {
   lang: 'uk',
   sharedWithYou: '\u0425\u0442\u043e\u0441\u044c \u043f\u043e\u0434\u0456\u043b\u0438\u0432\u0441\u044f \u0437 \u0442\u043e\u0431\u043e\u044e \u0442\u0435\u043c\u043e\u044e!',
   // Present tense keeps it right for any gender.
-  sharedWithYouBy: (name) => `${name} \u0434\u0456\u043b\u0438\u0442\u044c\u0441\u044f \u0437 \u0442\u043e\u0431\u043e\u044e \u0442\u0435\u043c\u043e\u044e!`,
   lessons: (n) => `${n} ${ukPlural(n, '\u0443\u0440\u043e\u043a', '\u0443\u0440\u043e\u043a\u0438', '\u0443\u0440\u043e\u043a\u0456\u0432')}`,
   questions: (n) => `${n} ${ukPlural(n, '\u043f\u0438\u0442\u0430\u043d\u043d\u044f', '\u043f\u0438\u0442\u0430\u043d\u043d\u044f', '\u043f\u0438\u0442\u0430\u043d\u044c')} \u0443 \u043a\u0432\u0456\u0437\u0430\u0445`,
   openInApp: '\u0412\u0456\u0434\u043a\u0440\u0438\u0442\u0438 \u0443 Studdly',
@@ -267,7 +260,6 @@ const uk: Strings = {
 const hi: Strings = {
   lang: 'hi',
   sharedWithYou: '\u0915\u093f\u0938\u0940 \u0928\u0947 \u0924\u0941\u092e\u094d\u0939\u093e\u0930\u0947 \u0938\u093e\u0925 \u090f\u0915 \u0935\u093f\u0937\u092f \u0936\u0947\u092f\u0930 \u0915\u093f\u092f\u093e \u0939\u0948!',
-  sharedWithYouBy: (name) => `${name} \u0928\u0947 \u0924\u0941\u092e\u094d\u0939\u093e\u0930\u0947 \u0938\u093e\u0925 \u090f\u0915 \u0935\u093f\u0937\u092f \u0936\u0947\u092f\u0930 \u0915\u093f\u092f\u093e \u0939\u0948!`,
   lessons: (n) => `${n} \u092a\u093e\u0920`,
   questions: (n) => `\u0915\u094d\u0935\u093f\u091c\u093c \u0915\u0947 ${n} \u0938\u0935\u093e\u0932`,
   openInApp: 'Studdly \u092e\u0947\u0902 \u0916\u094b\u0932\u0947\u0902',
@@ -302,7 +294,6 @@ const hi: Strings = {
 const id: Strings = {
   lang: 'id',
   sharedWithYou: 'Ada yang membagikan topik untukmu!',
-  sharedWithYouBy: (name) => `${name} membagikan topik untukmu!`,
   lessons: (n) => `${n} pelajaran`,
   questions: (n) => `${n} soal kuis`,
   openInApp: 'Buka di Studdly',

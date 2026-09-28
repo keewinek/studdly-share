@@ -3,6 +3,7 @@ import { pickStrings } from '../src/i18n';
 import { CODE_ALPHABET, generateCode, isValidCode } from '../src/lib/code';
 import { gunzip, gzip } from '../src/lib/crypto';
 import { normalizeLine, normalizeText, SUPPORTED_LANGUAGES, validatePayload } from '../src/lib/payload';
+import { hasProfanity, redactContacts, REDACTION } from '../src/lib/screen';
 import { samplePayload } from './helpers';
 
 describe('share codes', () => {
@@ -44,27 +45,21 @@ describe('payload validation', () => {
     if (!r.ok) expect(r.issues.map((i) => i.path)).toEqual(expect.arrayContaining(['pages', 'user_name']));
   });
 
-  it('accepts an optional sharer_name, normalized and length-capped', () => {
-    const ok = validatePayload(samplePayload({ sharer_name: '  Kasia\t ' }));
-    expect(ok.ok).toBe(true);
-    if (ok.ok) expect(ok.payload.sharer_name).toBe('Kasia');
-
-    const long = validatePayload(samplePayload({ sharer_name: 'x'.repeat(33) }));
-    expect(long.ok).toBe(false);
-    if (!long.ok) expect(long.issues.map((i) => i.path)).toContain('sharer_name');
-
-    const wrongType = validatePayload(samplePayload({ sharer_name: 42 }));
-    expect(wrongType.ok).toBe(false);
-  });
-
-  it('treats a missing, null or blank sharer_name as no name', () => {
-    for (const value of [undefined, null, '   ']) {
+  it('accepts sharer_name from older builds but never keeps it', () => {
+    // The field was removed on privacy grounds. Builds that already shipped
+    // with it must keep validating, so the key is tolerated and dropped.
+    for (const value of ['  Kasia\t ', 'x'.repeat(33), '', null]) {
       const payload = samplePayload();
-      if (value !== undefined) (payload as Record<string, unknown>).sharer_name = value;
+      (payload as Record<string, unknown>).sharer_name = value;
       const r = validatePayload(payload);
       expect(r.ok).toBe(true);
-      if (r.ok) expect(r.payload.sharer_name).toBeUndefined();
+      if (r.ok) expect((r.payload as unknown as Record<string, unknown>).sharer_name).toBeUndefined();
     }
+
+    // A wrong type is still a client bug worth reporting.
+    const wrongType = validatePayload(samplePayload({ sharer_name: 42 }));
+    expect(wrongType.ok).toBe(false);
+    if (!wrongType.ok) expect(wrongType.issues.map((i) => i.path)).toContain('sharer_name');
   });
 
   it('flags newer schemas separately', () => {
@@ -119,7 +114,6 @@ describe('landing language', () => {
       const t = pickStrings(lang);
       expect(t.lang).toBe(lang);
       // Spot-check the strings the landing page cannot render without.
-      expect(t.sharedWithYouBy('Kasia')).toContain('Kasia');
       expect(t.lessons(1)).toContain('1');
       expect(t.lessons(5)).toContain('5');
       expect(t.questions(2)).toContain('2');
@@ -129,5 +123,100 @@ describe('landing language', () => {
       expect(t.validUntil('1.1.2030')).toContain('1.1.2030');
       expect(Object.values(t.reasons).every((r) => r.length > 0)).toBe(true);
     }
+  });
+});
+
+describe('pre-publication screening', () => {
+  it('redacts the ways a child could be contacted', () => {
+    const cases = [
+      'napisz do mnie kasia.nowak@gmail.com',
+      'mój insta to @kasia_nowak123',
+      'wejdź na https://discord.gg/abcdef',
+      'więcej na www.mojastrona.pl',
+      'sprawdź mojastrona.com',
+      'zadzwoń +48 123 456 789',
+      'tel. 123 456 789',
+      'nr 501-234-567',
+    ];
+    for (const input of cases) {
+      const { text, redacted } = redactContacts(input);
+      expect(redacted, input).toBe(true);
+      expect(text, input).toContain(REDACTION);
+      expect(text, input).not.toMatch(/@[a-z]|https?:|\d{3}[\s.-]\d{3}/i);
+    }
+  });
+
+  it('leaves ordinary schoolwork completely alone', () => {
+    // Every one of these is the kind of line the filter must never touch:
+    // a false positive here breaks real homework.
+    const cases = [
+      'Kasia ma 5 jabłek, a Jaś ma 3. Ile mają razem?',
+      'Bitwa pod Grunwaldem odbyła się w 1410 roku.',
+      'Liczba pi wynosi w przybliżeniu 3,14159.',
+      'Wzór na wodę to H2O, a na dwutlenek węgla CO2.',
+      'Populacja Chin przekracza 1 400 000 000 osób.',
+      'Ludność Polski to około 38 000 000 mieszkańców.',
+      'Powstanie styczniowe wybuchło 22.01.1863 r.',
+      'Mieszko I przyjął chrzest w 966 r., a Bolesław Chrobry został królem w 1025.',
+      'Rozwiąż równanie: 2x + 5 = 15, czyli x = 5.',
+      'Jan Kowalski kupił 250 gramów sera po 12 zł za kilogram.',
+      'Temperatura wrzenia wody to 100 °C pod ciśnieniem 1013 hPa.',
+    ];
+    for (const input of cases) {
+      const { text, redacted } = redactContacts(input);
+      expect(redacted, input).toBe(false);
+      expect(text, input).toBe(input);
+    }
+  });
+
+  it('flags profanity in a title, including padded and digit-swapped spellings', () => {
+    for (const bad of ['kurwa mać', 'Ale to jest CHUJOWE', 'fuck this test', 'k u r… nope', 'sh1t']) {
+      // the deliberately harmless one in the middle must not fire
+      if (bad === 'k u r… nope') {
+        expect(hasProfanity(bad)).toBe(false);
+        continue;
+      }
+      expect(hasProfanity(bad), bad).toBe(true);
+    }
+  });
+
+  it('does not flag ordinary topic titles', () => {
+    const titles = [
+      'Fotosynteza',
+      'Układ krwionośny człowieka',
+      'Bitwa pod Grunwaldem',
+      'Analiza "Dziadów" części II',
+      'Rozmnażanie roślin okrytonasiennych',
+      'Present Perfect — ćwiczenia',
+      'Ssaki i ich przystosowania',
+      'Klasyfikacja związków organicznych',
+      'Powstanie warszawskie',
+      'Funkcja kwadratowa i jej wykres',
+    ];
+    for (const title of titles) {
+      expect(hasProfanity(title), title).toBe(false);
+    }
+  });
+
+  it('screens every text field of a payload, not just the title', () => {
+    const payload = samplePayload();
+    payload.sub_topics[0]!.content = 'Napisz do mnie: kasia@example.com i @kasia_n';
+    const r = validatePayload(payload);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.payload.sub_topics[0]!.content).not.toContain('kasia@example.com');
+      expect(r.payload.sub_topics[0]!.content).toContain(REDACTION);
+      expect(r.redactions).toBeGreaterThan(0);
+    }
+  });
+
+  it('rejects an offensive title but keeps ordinary ones', () => {
+    const bad = validatePayload(samplePayload({ title: 'kurwa fotosynteza' }));
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.error).toBe('title_not_allowed');
+
+    const good = validatePayload(samplePayload({ title: 'Fotosynteza' }));
+    expect(good.ok).toBe(true);
+    if (good.ok) expect(good.redactions).toBe(0);
   });
 });

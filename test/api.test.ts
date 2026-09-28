@@ -257,17 +257,15 @@ describe('landing page', () => {
     expect(html).toContain('<span class="ticks"><i></i><i></i></span>');
   });
 
-  it('greets by name when the payload carries one, and escapes it', async () => {
+  it('never greets by name, even when an older build sends one', async () => {
     const { code } = await createOk(samplePayload({ sharer_name: 'Kasia' }));
     const html = await (await get(`/${code}`, { headers: { 'Accept-Language': 'pl' } })).text();
-    // Present tense: right for a sender of any gender.
-    expect(html).toContain('Kasia udostępnia Ci temat!');
-    expect(html).not.toContain('Ktoś udostępnił Ci temat!');
+    expect(html).not.toContain('Kasia');
+    expect(html).toContain('Ktoś udostępnił Ci temat!');
 
-    const evil = await createOk(samplePayload({ sharer_name: '<img src=x onerror=1>' }));
-    const evilHtml = await (await get(`/${evil.code}`, { headers: { 'Accept-Language': 'pl' } })).text();
-    expect(evilHtml).not.toContain('<img src=x onerror=1>');
-    expect(evilHtml).toContain('&lt;img src=x onerror=1&gt;');
+    // And the dropped value cannot reach the page through the payload API.
+    const fetched = await (await get(`/api/v1/shares/${code}`)).json<{ payload: Record<string, unknown> }>();
+    expect(fetched.payload.sharer_name).toBeUndefined();
   });
 
   it('falls back to the nameless greeting for payloads without a name', async () => {

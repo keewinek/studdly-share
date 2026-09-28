@@ -184,7 +184,7 @@ landing.get('/:code', async (c) => {
   const shareUrl = `${c.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/${row.code}`;
   const summary = `${t.lessons(row.sub_topic_count)} · ${t.questions(row.question_count)}`;
   const openUrl = openInAppUrl(c.env, platform, row.code);
-  const headline = payload.sharer_name ? t.sharedWithYouBy(payload.sharer_name) : t.sharedWithYou;
+  const headline = t.sharedWithYou;
   const reasons = Object.entries(t.reasons)
     .map(([key, label]) => `<button type="button" class="reason" data-reason="${key}">${escapeHtml(label)}</button>`)
     .join('');

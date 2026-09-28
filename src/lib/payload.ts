@@ -16,7 +16,6 @@ export const LIMITS = {
   content: 20_000,
   questions: 30,
   question: 500,
-  sharerName: 32,
   answer: 300,
   wrongAnswers: 6,
 } as const;
@@ -42,7 +41,6 @@ export interface PayloadV1 {
    * never an account id. Absent on every payload created before this field
    * existed, so the landing page must always have a nameless fallback.
    */
-  sharer_name?: string;
   language: (typeof SUPPORTED_LANGUAGES)[number];
   advancement_level: (typeof ADVANCEMENT_LEVELS)[number];
   sub_topics: SubTopicV1[];
@@ -53,9 +51,11 @@ export interface Issue {
   problem: string;
 }
 
+import { redactContacts, hasProfanity } from './screen';
+
 export type ValidationResult =
-  | { ok: true; payload: PayloadV1; subTopicCount: number; questionCount: number }
-  | { ok: false; error: 'invalid_payload' | 'unsupported_schema'; issues: Issue[] };
+  | { ok: true; payload: PayloadV1; subTopicCount: number; questionCount: number; redactions: number }
+  | { ok: false; error: 'invalid_payload' | 'unsupported_schema' | 'title_not_allowed'; issues: Issue[] };
 
 const MAX_ISSUES = 20;
 
@@ -84,6 +84,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 class Checker {
   issues: Issue[] = [];
 
+  redactions = 0;
+
   fail(path: string, problem: string): void {
     if (this.issues.length < MAX_ISSUES) this.issues.push({ path, problem });
   }
@@ -102,7 +104,10 @@ class Checker {
     const normalized = multiline ? normalizeText(value) : normalizeLine(value);
     if (normalized.length === 0) this.fail(path, 'must not be empty');
     else if (normalized.length > max) this.fail(path, `must be at most ${max} characters`);
-    return normalized;
+    // Contact details never reach storage. Silent by design — see screen.ts.
+    const { text, redacted } = redactContacts(normalized);
+    if (redacted) this.redactions += 1;
+    return text;
   }
 
   list(value: unknown, path: string, min: number, max: number): unknown[] {
@@ -134,21 +139,14 @@ export function validatePayload(input: unknown): ValidationResult {
 
   const title = c.text(input.title, 'title', LIMITS.title, false);
 
-  // Optional. Absent, null and blank all mean "no name" — only a wrong type or
-  // an over-long name is an error, so old and nameless apps keep validating.
-  let sharerName: string | undefined;
+  // `sharer_name` was removed: publishing a child's first name on a public page
+  // is personal data we have no basis to process, and the landing page has
+  // always had a nameless headline. The key is still accepted so builds that
+  // shipped with it keep working, but the value is dropped here and never
+  // reaches storage or the page. Only a wrong type is an error.
   const rawName = input.sharer_name;
-  if (rawName !== undefined && rawName !== null) {
-    if (typeof rawName !== 'string') {
-      c.fail('sharer_name', 'must be a string');
-    } else {
-      const normalized = normalizeLine(rawName);
-      if (normalized.length > LIMITS.sharerName) {
-        c.fail('sharer_name', `must be at most ${LIMITS.sharerName} characters`);
-      } else if (normalized.length > 0) {
-        sharerName = normalized;
-      }
-    }
+  if (rawName !== undefined && rawName !== null && typeof rawName !== 'string') {
+    c.fail('sharer_name', 'must be a string');
   }
 
   const language = input.language;
@@ -196,17 +194,24 @@ export function validatePayload(input: unknown): ValidationResult {
 
   if (c.issues.length > 0) return { ok: false, error: 'invalid_payload', issues: c.issues };
 
+  // The title is the one field a person types by hand, so it is the one field
+  // worth checking for profanity. Lesson bodies are AI-generated from a
+  // textbook and are left alone on purpose (screen.ts explains why).
+  if (hasProfanity(title)) {
+    return { ok: false, error: 'title_not_allowed', issues: [{ path: 'title', problem: 'not allowed' }] };
+  }
+
   return {
     ok: true,
     payload: {
       schema: 1,
       title,
-      ...(sharerName === undefined ? {} : { sharer_name: sharerName }),
       language: language as PayloadV1['language'],
       advancement_level: level as PayloadV1['advancement_level'],
       sub_topics: subTopics,
     },
     subTopicCount: subTopics.length,
     questionCount,
+    redactions: c.redactions,
   };
 }

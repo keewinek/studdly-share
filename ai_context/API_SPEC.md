@@ -136,9 +136,6 @@ Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`,
 {
   "schema": 1,
   "title": "Fotosynteza",                 // 1..120 chars
-  "sharer_name": "Kasia",                  // OPTIONAL, 0..32 chars — first name typed by
-                                           // the sender in the app; shown on the landing
-                                           // page. Omit / null / blank = no name.
   "language": "pl",                        // one of the app's shipped codes: en pl es de fr uk hi id
   "advancement_level": "normal",           // fast | normal | exact
   "sub_topics": [                          // 1..150 items, in learning order
@@ -160,7 +157,8 @@ Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`,
 Rules:
 - Strings: NFC-normalized, control chars stripped except `\n` and `\t`, trimmed. Empty after trimming → invalid.
 - **Not included on purpose:** local ids, `completed` flags, `pages` / OCR text, device/user id, API provider, timestamps from the device. Recipients regenerate ids.
-- `sharer_name` is the **one** piece of user-entered personal data in the payload, added so the landing page can say "Kasia shared a topic with you!". It is optional in both directions: old apps never send it, and the landing page always has a nameless fallback. It is a display name only — never an account id, never logged, and it disappears with the share (30-day expiry / delete / takedown). A wrong type or > 32 chars is `400 invalid_payload`; blank or `null` is accepted and treated as absent.
+- `sharer_name` was added on 2026-09-27 and **removed on 2026-09-28**. The key is still accepted so builds that shipped with it keep working, but the value is **dropped and never stored or rendered** — only a wrong type is `400 invalid_payload`. Publishing a child's first name on a public page is personal data with no lawful basis; see `SHARE_CONTEXT.md` D17.
+- **Pre-publication screening.** Every text field is screened before the payload is stored: e-mail addresses, phone numbers, `@handles` and links are replaced with `[…]`. Screening is silent — the share still succeeds — because the goal is to keep contact details out of a public page, not to block schoolwork. A topic **title** containing profanity is rejected with `422 title_not_allowed`; content is not checked for profanity, since it is AI-generated from a textbook and the false-positive cost would land on ordinary biology and history lessons.
 - Total validated payload ≤ 1 MiB. Typical: 30–120 KB raw → 8–30 KB gzipped.
 - Adding optional fields later = still `schema: 1`. Renaming/removing/semantic change = `schema: 2`, and the server must keep accepting (and serving) `1`.
 

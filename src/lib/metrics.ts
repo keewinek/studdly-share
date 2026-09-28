@@ -22,6 +22,8 @@ export type Metric =
   | 'rate_limited'
   | 'daily_limit'
   | 'rejected_invalid'
+  | 'rejected_title'
+  | 'screened'
   | 'error';
 
 /**
