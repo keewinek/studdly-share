@@ -41,8 +41,11 @@
     "APPLE_APP_ID": "NQT6HQRV63.com.studdly.app",
     "ANDROID_PACKAGE": "com.studdly.app",
     // Comma-separated SHA-256 cert fingerprints (Play App Signing + upload key).
-    // Order: Play App Signing key, upload key (from Play Console → App integrity).
-    "ANDROID_CERT_SHA256": "9B:96:8F:59:BB:5D:3B:D9:07:B2:2A:28:30:74:B7:A4:D1:FF:5D:2F:C7:93:BE:1A:1C:A2:AA:FC:D1:9F:26:4D,8B:33:90:E8:6A:61:B2:09:A8:EE:59:E9:7E:BE:9A:BB:33:6C:66:16:59:F0:1C:3E:11:54:4F:EB:83:63:B1:65",
+    // KEEP old fingerprints: installs signed with them still exist. Only add.
+    // Order: NEW Play App Signing key (rotated 2026-09-30), previous Play App Signing key (still 100% of installs until users update),
+    // upload key shown in Play while the reset is pending, previous upload key.
+    // TODO: when the upload-key reset is approved, add the NEW upload key SHA-256 (Play Console → App signing).
+    "ANDROID_CERT_SHA256": "5F:62:11:E3:63:B1:83:F8:98:84:91:51:4D:4E:83:D0:B7:3C:74:1B:63:59:6A:58:DF:55:D5:A4:32:7A:8E:42,9B:96:8F:59:BB:5D:3B:D9:07:B2:2A:28:30:74:B7:A4:D1:FF:5D:2F:C7:93:BE:1A:1C:A2:AA:FC:D1:9F:26:4D,F0:53:88:EB:09:6E:62:53:57:98:A7:D7:EB:F0:82:52:71:3F:03:26:16:AE:66:AB:7C:26:B0:9C:6D:AB:37:81,8B:33:90:E8:6A:61:B2:09:A8:EE:59:E9:7E:BE:9A:BB:33:6C:66:16:59:F0:1C:3E:11:54:4F:EB:83:63:B1:65",
     "PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=com.studdly.app",
     "APP_STORE_URL": "https://apps.apple.com/app/studdly/id6755741754",
     "PRIVACY_POLICY_URL": "https://studdly.netlify.app/privacy_policy",
