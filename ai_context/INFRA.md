@@ -166,7 +166,7 @@ scripts/ensure-workers-subdomain.mjs # CI: register the account workers.dev subd
 
 `IP_HASH_SALT` is generated once by `sync-secrets.mjs` and never leaves Cloudflare.
 
-**Android App Links:** `wrangler.jsonc` → `ANDROID_CERT_SHA256` holds the Play App Signing and upload key SHA-256 (set 2026-09-26). Debug builds use a different key, so links open the browser there.
+**Android App Links:** `wrangler.jsonc` → `ANDROID_CERT_SHA256` holds the Play App Signing and upload key SHA-256 (set 2026-09-26). Play App Signing key rotated 2026-09-30: the new fingerprint was added, old ones are kept (existing installs); add, never replace. Debug builds use a different key, so links open the browser there.
 
 **Moderation without code:** GitHub → Actions → *Moderate a share* → Run workflow → code + `remove`/`restore`.
 
