@@ -15,8 +15,8 @@ The app **maps `error` → localized copy**; `message` is never shown to users.
 
 ## Share code
 
-- Generated codes: **5 chars** from `23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz` (49 symbols → 49⁵ ≈ 282M).
-- Accepted codes (server routing, app, Android/iOS link config): `^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,6}$` — 6 is reserved so new links can grow later without an app update.
+- Generated codes: **8 chars** from `23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz` (49 symbols → 49⁸ ≈ 3.3·10¹³). Links created before the switch have 5 chars and stay valid forever.
+- Accepted codes (server routing, app, Android/iOS link config): `^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,8}$` — 5 = legacy links, 8 = current; 6–7 are accepted for future flexibility. **The app's Android intent filters / link handling must accept 8 chars too** (`/????????`).
 - Generated with `crypto.getRandomValues` + rejection sampling (no modulo bias).
 - Any path segment not matching the regex → `404 not_found` without touching storage (cheap, and blocks garbage probing).
 
@@ -126,7 +126,7 @@ Admin session or `Authorization: Bearer <ADMIN_TOKEN>`. Sets `status='removed'`,
 | `GET /.well-known/assetlinks.json` | Android App Links (served by the Worker with `application/json`) |
 | `GET /.well-known/apple-app-site-association` | iOS Universal Links (no extension, `application/json`) |
 | `GET /api/v1/health` | `{ "ok": true, "version": "<git sha>" }` — checks D1 with `SELECT 1` |
-| `GET /robots.txt` | `Disallow: /` (plus `noindex` headers on HTML) |
+| `GET /robots.txt` | `Disallow: /` for all agents plus explicit groups for major search/AI crawlers (plus `noindex, nofollow` headers and meta, and `rel="nofollow"` on every link in HTML) |
 
 ---
 

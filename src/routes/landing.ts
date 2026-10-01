@@ -46,8 +46,8 @@ function openInAppUrl(env: Env, platform: Platform, code: string): string | null
 }
 
 function storeButtons(env: Env, t: Strings, platform: Platform, code?: string): string {
-  const play = `<a class="btn secondary" href="${escapeHtml(playUrl(env, code))}">${escapeHtml(t.googlePlay)}</a>`;
-  const apple = `<a class="btn secondary" href="${escapeHtml(env.APP_STORE_URL)}">${escapeHtml(t.appStore)}</a>`;
+  const play = `<a rel="nofollow" class="btn secondary" href="${escapeHtml(playUrl(env, code))}">${escapeHtml(t.googlePlay)}</a>`;
+  const apple = `<a rel="nofollow" class="btn secondary" href="${escapeHtml(env.APP_STORE_URL)}">${escapeHtml(t.appStore)}</a>`;
   if (platform === 'android') return play;
   if (platform === 'ios') return apple;
   return play + apple;
@@ -91,11 +91,11 @@ ${smartBanner}
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<header><a href="https://studdly.app"><img class="logotype" src="/logotype.png" alt="Studdly" width="140" height="32"></a></header>
+<header><a rel="nofollow" href="https://studdly.app"><img class="logotype" src="/logotype.png" alt="Studdly" width="140" height="32"></a></header>
 <main>
 ${body}
 </main>
-<footer><a href="${escapeHtml(env.PRIVACY_POLICY_URL)}">${escapeHtml(t.privacy)}</a></footer>
+<footer><a rel="nofollow" href="${escapeHtml(env.PRIVACY_POLICY_URL)}">${escapeHtml(t.privacy)}</a></footer>
 </body>
 </html>`;
 }
@@ -167,7 +167,7 @@ landing.get('/:code', async (c) => {
 ${more > 0 ? `<p class="muted more">${escapeHtml(t.andMore(more))}</p>` : ''}
 </section>
 <div class="actions">
-${openUrl ? `<a class="btn primary" href="${escapeHtml(openUrl)}">${escapeHtml(t.openInApp)}</a>` : ''}
+${openUrl ? `<a rel="nofollow" class="btn primary" href="${escapeHtml(openUrl)}">${escapeHtml(t.openInApp)}</a>` : ''}
 ${storeButtons(c.env, t, platform, row.code)}
 </div>
 <p class="muted hint">${escapeHtml(t.installHint)}</p>

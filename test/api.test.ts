@@ -14,7 +14,7 @@ async function createOk(payload: unknown = samplePayload(), secret = newSecret()
 describe('POST /api/v1/shares', () => {
   it('creates a share and returns a 5-char code and URL', async () => {
     const body = await createOk();
-    expect(body.code).toMatch(/^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5}$/);
+    expect(body.code).toMatch(/^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{8}$/);
     expect(body.url).toBe(`${BASE}/${body.code}`);
     const row = await findByCode(testEnv, body.code);
     expect(row?.status).toBe('active');
@@ -236,6 +236,8 @@ describe('landing page', () => {
     expect(res.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
     const html = await res.text();
     expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    for (const a of html.match(/<a [^>]*>/g) ?? []) expect(a, a).toMatch(/rel="[^"]*nofollow/);
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quotes&quot;');
     expect(html).toContain('Ktoś udostępnił Ci temat!');
     expect(html).toContain('2 lekcje · 3 pytania w quizach');
@@ -267,7 +269,10 @@ describe('landing page', () => {
 
   it('ships static assets (served before the Worker in production)', async () => {
     expect((await testEnv.ASSETS.fetch(`${BASE}/styles.css`)).status).toBe(200);
-    expect(await (await testEnv.ASSETS.fetch(`${BASE}/robots.txt`)).text()).toContain('Disallow: /');
+    const robots = await (await testEnv.ASSETS.fetch(`${BASE}/robots.txt`)).text();
+    expect(robots).toMatch(/User-agent: \*\nDisallow: \/\n/);
+    expect(robots).toContain('User-agent: Googlebot\nDisallow: /');
+    expect(robots).toContain('User-agent: GPTBot\nDisallow: /');
   });
 });
 
@@ -278,7 +283,7 @@ describe('well-known files', () => {
     expect(res.headers.get('Content-Type')).toBe('application/json');
     const body = (await res.json()) as { applinks: { details: { appIDs: string[]; components: { '/': string }[] }[] } };
     expect(body.applinks.details[0]?.appIDs).toEqual(['NQT6HQRV63.com.studdly.app']);
-    expect(body.applinks.details[0]?.components.map((c) => c['/'])).toContain('/?????');
+    expect(body.applinks.details[0]?.components.map((c) => c['/'])).toEqual(expect.arrayContaining(['/?????', '/????????']));
     const components = body.applinks.details[0]!.components as { '/': string; exclude?: boolean }[];
     const adminIdx = components.findIndex((c) => c['/'] === '/admin' && c.exclude);
     expect(adminIdx).toBeGreaterThanOrEqual(0);

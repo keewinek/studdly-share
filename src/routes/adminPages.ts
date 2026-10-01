@@ -75,7 +75,7 @@ function layout(title: string, active: string, body: string): string {
     ['/admin/reports', 'Zgłoszenia', 'reports'],
     ['/admin/settings', 'Ustawienia', 'settings'],
   ]
-    .map(([href, label, key]) => `<a href="${href}"${key === active ? ' class="active"' : ''}>${label}</a>`)
+    .map(([href, label, key]) => `<a rel="nofollow" href="${href}"${key === active ? ' class="active"' : ''}>${label}</a>`)
     .join('');
   return `<!doctype html>
 <html lang="pl">
@@ -89,7 +89,7 @@ function layout(title: string, active: string, body: string): string {
 <script src="/admin.js" defer></script>
 </head>
 <body>
-<header class="top"><a class="brand" href="/admin"><img src="/logotype.png" alt="Studdly" width="112" height="26"><span>admin</span></a>
+<header class="top"><a rel="nofollow" class="brand" href="/admin"><img src="/logotype.png" alt="Studdly" width="112" height="26"><span>admin</span></a>
 ${active ? `<nav>${nav}<button type="button" class="link" data-logout>Wyloguj</button></nav>` : ''}</header>
 <main>${body}</main>
 </body>
@@ -135,7 +135,7 @@ function barChart(points: { label: string; value: number }[]): string {
 
 function shareRowHtml(s: ShareRow): string {
   return `<tr>
-<td><a class="mono" href="/admin/shares/${e(s.code)}">${e(s.code)}</a></td>
+<td><a rel="nofollow" class="mono" href="/admin/shares/${e(s.code)}">${e(s.code)}</a></td>
 <td class="title-cell">${e(s.title)}</td>
 <td>${statusBadge(s.status)}</td>
 <td>${e(s.language)}</td>
@@ -321,9 +321,9 @@ adminPages.get('/shares', async (c) => {
 <section class="card">
 <div class="table-wrap"><table>${SHARE_TABLE_HEAD}<tbody>${items.map(shareRowHtml).join('') || '<tr><td colspan="10" class="muted">Nic nie znaleziono</td></tr>'}</tbody></table></div>
 <div class="pager">
-${pageNo > 1 ? `<a class="btn" href="${e(qs(pageNo - 1))}">← Poprzednia</a>` : '<span></span>'}
+${pageNo > 1 ? `<a rel="nofollow" class="btn" href="${e(qs(pageNo - 1))}">← Poprzednia</a>` : '<span></span>'}
 <span class="muted">Strona ${pageNo} z ${pages}</span>
-${pageNo < pages ? `<a class="btn" href="${e(qs(pageNo + 1))}">Następna →</a>` : '<span></span>'}
+${pageNo < pages ? `<a rel="nofollow" class="btn" href="${e(qs(pageNo + 1))}">Następna →</a>` : '<span></span>'}
 </div>
 </section>`;
   return page(c, 'Tematy', 'shares', body);
@@ -331,7 +331,7 @@ ${pageNo < pages ? `<a class="btn" href="${e(qs(pageNo + 1))}">Następna →</a>
 
 adminPages.get('/shares/:code', async (c) => {
   const row = await findByCode(c.env, c.req.param('code'));
-  if (!row) return page(c, 'Nie znaleziono', 'shares', '<section class="card"><h1>Nie ma takiego tematu</h1><p><a href="/admin/shares">← Wróć do listy</a></p></section>', 404);
+  if (!row) return page(c, 'Nie znaleziono', 'shares', '<section class="card"><h1>Nie ma takiego tematu</h1><p><a rel="nofollow" href="/admin/shares">← Wróć do listy</a></p></section>', 404);
   const [gz, reports] = await Promise.all([readPayload(c.env, row.payload_shard, row.code), recentReports(c.env, 50, row.code)]);
   let payload: PayloadV1 | null = null;
   if (gz) {
@@ -349,8 +349,8 @@ adminPages.get('/shares/:code', async (c) => {
     row.status === 'removed_pending_review'
       ? `<button type="button" class="btn primary" data-action="restore" data-code="${e(row.code)}">Przywróć (zgłoszenia niesłuszne)</button>`
       : '',
-    gz ? `<a class="btn" href="/api/admin/shares/${e(row.code)}/payload">Pobierz JSON</a>` : '',
-    row.status === 'active' ? `<a class="btn" href="${e(publicUrl)}" target="_blank" rel="noopener">Otwórz link publiczny</a>` : '',
+    gz ? `<a rel="nofollow" class="btn" href="/api/admin/shares/${e(row.code)}/payload">Pobierz JSON</a>` : '',
+    row.status === 'active' ? `<a class="btn" href="${e(publicUrl)}" target="_blank" rel="nofollow noopener">Otwórz link publiczny</a>` : '',
   ].join('');
 
   const lessons = payload
@@ -369,7 +369,7 @@ adminPages.get('/shares/:code', async (c) => {
     : '<p class="muted">Treść tego tematu została już usunięta z serwera.</p>';
 
   const body = `
-<p><a href="/admin/shares">← Wszystkie tematy</a></p>
+<p><a rel="nofollow" href="/admin/shares">← Wszystkie tematy</a></p>
 <h1>${e(row.title)} <span class="mono muted">${e(row.code)}</span></h1>
 <div class="actions">${actions}</div>
 <p class="form-error" id="action-error" hidden></p>
@@ -415,7 +415,7 @@ adminPages.get('/reports', async (c) => {
 <tbody>${
     reports
       .map(
-        (r) => `<tr><td>${formatTime(r.created_at)}</td><td><a class="mono" href="/admin/shares/${e(r.code)}">${e(r.code)}</a></td><td class="title-cell">${e(r.title ?? '—')}</td><td>${r.status ? statusBadge(r.status) : '—'}</td><td>${e(REASON_LABELS[r.reason] ?? r.reason)}</td><td class="wrap">${e(r.details ?? '')}</td></tr>`,
+        (r) => `<tr><td>${formatTime(r.created_at)}</td><td><a rel="nofollow" class="mono" href="/admin/shares/${e(r.code)}">${e(r.code)}</a></td><td class="title-cell">${e(r.title ?? '—')}</td><td>${r.status ? statusBadge(r.status) : '—'}</td><td>${e(REASON_LABELS[r.reason] ?? r.reason)}</td><td class="wrap">${e(r.details ?? '')}</td></tr>`,
       )
       .join('') || '<tr><td colspan="6" class="muted">Brak zgłoszeń</td></tr>'
   }</tbody></table></div></section>`;

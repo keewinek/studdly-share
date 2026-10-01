@@ -23,7 +23,7 @@ App identifiers (from the app repo): Android `applicationId` **`com.studdly.app`
 - Design = Studdly: background `#000000`, Figtree (self-hosted in `/public/fonts`), text `#F2F0F0`/`#C8C8C8`, ocean CTA `#4D67AA`, radius 12, content max-width 500, 24 px padding, CTA 273×51. Mirror `ai_context/DESIGN_STYLE.md` from the app repo.
 - Language: `Accept-Language` best match among the app's languages, fallback EN. Copy is short and child-friendly ("Kasia shared a topic with you" is **not** possible — we don't know names; use "Someone shared a topic with you!").
 - `<head>`:
-  - `<meta name="robots" content="noindex, nofollow">`
+  - `<meta name="robots" content="noindex, nofollow">` and `rel="nofollow"` on every `<a>`
   - Open Graph / Twitter: `og:title` = topic title, `og:description` = "12 lessons · 36 quiz questions · Learn it in Studdly", `og:image` = one static branded image from `/public` (no per-share image generation in v1 — CPU budget), `og:url`, `og:site_name` = Studdly.
   - `apple-itunes-app` smart banner meta with `app-argument=https://share.studdly.app/<code>`.
 - Gone/unknown codes → same layout, friendly "This link doesn't work anymore — ask your friend to share it again" + store buttons. Status `404`/`410` (not 200, so crawlers don't cache previews for dead links).
@@ -42,7 +42,7 @@ App identifiers (from the app repo): Android `applicationId` **`com.studdly.app`
 </intent-filter>
 ```
 
-`pathPattern="/....."` / `"/......"` = slash + exactly five / six characters (today's codes are 5; 6 is reserved for later). `/admin` is also 5 characters, so Android hands it to the app; the app sees it is not a share code and opens it in a browser tab (Custom Tabs), which doesn't loop back to the app.
+`pathPattern="/....."` / `"/......"` = slash + exactly five / six characters (today's codes are 8; 5 = legacy links, 6–7 reserved) — add `/????????` (8) for new links. `/admin` is also 5 characters, so Android hands it to the app; the app sees it is not a share code and opens it in a browser tab (Custom Tabs), which doesn't loop back to the app.
 
 Worker serves `/.well-known/assetlinks.json`:
 
@@ -78,8 +78,10 @@ Verify with `adb shell pm get-app-links com.studdly.app` and Google's Statement 
         { "/": "/.well-known/*", "exclude": true },
         { "/": "/admin", "exclude": true },
         { "/": "/admin/*", "exclude": true },
-        { "/": "/?????", "comment": "share code (5 chars, current)" },
-        { "/": "/??????", "comment": "share code (6 chars, reserved)" }
+        { "/": "/?????", "comment": "share code (5 chars, legacy)" },
+        { "/": "/??????", "comment": "share code (6 chars, reserved)" },
+        { "/": "/???????", "comment": "share code (7 chars, reserved)" },
+        { "/": "/????????", "comment": "share code (8 chars, current)" }
       ]
     }]
   }
