@@ -3,10 +3,10 @@
  * (0/O, 1/l/I). Links are permanent, so this alphabet must never change.
  */
 export const CODE_ALPHABET = '23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz';
-export const GENERATED_CODE_LENGTH = 8;
+export const GENERATED_CODE_LENGTH = 5;
 
-/** Accepts 5–8 characters: 8 is generated today, 5 (legacy links are permanent) and 6–7 stay valid. */
-export const CODE_PATTERN = /^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,8}$/;
+/** Accepts 5 (current) and 6 (reserved for later growth) characters. */
+export const CODE_PATTERN = /^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5,6}$/;
 
 /**
  * First path segments that are never share codes. None of them can match

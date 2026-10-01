@@ -42,7 +42,7 @@ App identifiers (from the app repo): Android `applicationId` **`com.studdly.app`
 </intent-filter>
 ```
 
-`pathPattern="/....."` / `"/......"` = slash + exactly five / six characters (today's codes are 8; 5 = legacy links, 6–7 reserved) — add `/????????` (8) for new links. `/admin` is also 5 characters, so Android hands it to the app; the app sees it is not a share code and opens it in a browser tab (Custom Tabs), which doesn't loop back to the app.
+`pathPattern="/....."` / `"/......"` = slash + exactly five / six characters (today's codes are 5; 6 is reserved for later). `/admin` is also 5 characters, so Android hands it to the app; the app sees it is not a share code and opens it in a browser tab (Custom Tabs), which doesn't loop back to the app.
 
 Worker serves `/.well-known/assetlinks.json`:
 
@@ -78,10 +78,8 @@ Verify with `adb shell pm get-app-links com.studdly.app` and Google's Statement 
         { "/": "/.well-known/*", "exclude": true },
         { "/": "/admin", "exclude": true },
         { "/": "/admin/*", "exclude": true },
-        { "/": "/?????", "comment": "share code (5 chars, legacy)" },
-        { "/": "/??????", "comment": "share code (6 chars, reserved)" },
-        { "/": "/???????", "comment": "share code (7 chars, reserved)" },
-        { "/": "/????????", "comment": "share code (8 chars, current)" }
+        { "/": "/?????", "comment": "share code (5 chars, current)" },
+        { "/": "/??????", "comment": "share code (6 chars, reserved)" }
       ]
     }]
   }

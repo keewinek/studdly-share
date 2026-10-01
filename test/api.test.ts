@@ -14,7 +14,7 @@ async function createOk(payload: unknown = samplePayload(), secret = newSecret()
 describe('POST /api/v1/shares', () => {
   it('creates a share and returns a 5-char code and URL', async () => {
     const body = await createOk();
-    expect(body.code).toMatch(/^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{8}$/);
+    expect(body.code).toMatch(/^[23456789BCDFGHJKLMNPQRSTVWXYZbcdfghjkmnpqrstvwxyz]{5}$/);
     expect(body.url).toBe(`${BASE}/${body.code}`);
     const row = await findByCode(testEnv, body.code);
     expect(row?.status).toBe('active');
@@ -283,7 +283,7 @@ describe('well-known files', () => {
     expect(res.headers.get('Content-Type')).toBe('application/json');
     const body = (await res.json()) as { applinks: { details: { appIDs: string[]; components: { '/': string }[] }[] } };
     expect(body.applinks.details[0]?.appIDs).toEqual(['NQT6HQRV63.com.studdly.app']);
-    expect(body.applinks.details[0]?.components.map((c) => c['/'])).toEqual(expect.arrayContaining(['/?????', '/????????']));
+    expect(body.applinks.details[0]?.components.map((c) => c['/'])).toEqual(expect.arrayContaining(['/?????']));
     const components = body.applinks.details[0]!.components as { '/': string; exclude?: boolean }[];
     const adminIdx = components.findIndex((c) => c['/'] === '/admin' && c.exclude);
     expect(adminIdx).toBeGreaterThanOrEqual(0);

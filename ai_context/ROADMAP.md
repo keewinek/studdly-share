@@ -5,7 +5,7 @@
 | # | Question | Recommendation |
 |---|----------|----------------|
 | Q1 | How to attach `share.studdly.app` to Cloudflare? | ✅ **Decided: move `studdly.app` nameservers (OVH) to Cloudflare free**, Netlify records DNS-only, no challenge features on the share host. See `INFRA.md` §5. |
-| Q2 | Code length | ✅ **Decided: 8 chars** (was 5; legacy 5-char links stay valid). Apps and well-known files must accept 5–8. |
+| Q2 | Code length | ✅ **Decided: 5 chars.** Apps and well-known files accept 5–6 so new links can grow later without an app update. |
 | Q3 | Re-tap check fails because of no internet / server down | ✅ **Decided: open the share sheet with the remembered link.** Only `404`/`410` triggers re-upload. |
 | Q4 | Can a recipient without an AI key use imported topics? | ✅ **Decided: no.** Recipient finishes normal onboarding (incl. key) first; the link is kept as a pending import and the topic is created right after onboarding. |
 | Q5 | When the sender deletes the topic locally, delete the share on the server? | **No** in v1 (friends may still be importing). Add explicit "Stop sharing" later. |

@@ -6,22 +6,20 @@ import { normalizeLine, normalizeText, validatePayload } from '../src/lib/payloa
 import { samplePayload } from './helpers';
 
 describe('share codes', () => {
-  it('generates 8-char codes from the no-vowel alphabet', () => {
+  it('generates 5-char codes from the no-vowel alphabet', () => {
     for (let i = 0; i < 200; i++) {
       const code = generateCode();
-      expect(code).toHaveLength(8);
+      expect(code).toHaveLength(5);
       expect([...code].every((ch) => CODE_ALPHABET.includes(ch))).toBe(true);
       expect(isValidCode(code)).toBe(true);
     }
   });
 
-  it('accepts 5-8 chars, rejects vowels, look-alikes and other lengths', () => {
-    expect(isValidCode('k4Rf8')).toBe(true); // legacy
+  it('accepts 5 and 6 chars, rejects vowels, look-alikes and other lengths', () => {
+    expect(isValidCode('k4Rf8')).toBe(true);
     expect(isValidCode('k4Rf8b')).toBe(true);
-    expect(isValidCode('k4Rf8bc')).toBe(true);
-    expect(isValidCode('k4Rf8bcD')).toBe(true);
     expect(isValidCode('k4Rf')).toBe(false);
-    expect(isValidCode('k4Rf8bcDg')).toBe(false);
+    expect(isValidCode('k4Rf8bc')).toBe(false);
     expect(isValidCode('e4Rf8')).toBe(false); // vowel
     expect(isValidCode('k0Rf8')).toBe(false); // zero
     expect(isValidCode('k1Rf8')).toBe(false); // one
